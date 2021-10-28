@@ -4,13 +4,19 @@
 
 #include <cassert>
 
+Layer* Network::GetLayer(std::size_t index) noexcept {
+	return m_Layers[index].get();
+}
+std::size_t Network::GetLayerCount() const noexcept {
+	return m_Layers.size();
+}
 void Network::AddLayer(std::unique_ptr<Layer>&& newLayer) {
 	assert(newLayer != nullptr);
 
 	m_Layers.push_back(std::move(newLayer));
 }
 
-Matrix Network::Run(const Matrix& input) {
+Matrix Network::Forward(const Matrix& input) {
 	assert(!m_Layers.empty());
 
 	Matrix nextInput = input;
@@ -20,6 +26,15 @@ Matrix Network::Run(const Matrix& input) {
 	}
 
 	return nextInput;
+}
+void Network::Backward(const Matrix& gradient) {
+	assert(!m_Layers.empty());
+
+	Matrix nextGradient = gradient;
+
+	for (auto& layer : m_Layers) {
+		nextGradient = layer->Backward(nextGradient);
+	}
 }
 
 Optimizer* Network::GetOptimizer() noexcept {

@@ -47,9 +47,12 @@ public:
 	Network& operator=(const Network&) = delete;
 
 public:
+	Layer* GetLayer(std::size_t index) noexcept;
+	std::size_t GetLayerCount() const noexcept;
 	void AddLayer(std::unique_ptr<Layer>&& newLayer);
 
-	Matrix Run(const Matrix& input);
+	Matrix Forward(const Matrix& input);
+	void Backward(const Matrix& gradient);
 
 	Optimizer* GetOptimizer() noexcept;
 	void SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept;

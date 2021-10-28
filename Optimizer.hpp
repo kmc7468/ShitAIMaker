@@ -46,3 +46,22 @@ public:
 
 	virtual void Optimize(const TrainData& trainData, std::size_t epoch) = 0;
 };
+
+class SGDOptimizer final : public Optimizer {
+private:
+	float m_LearningRate = 0.1f;
+
+public:
+	SGDOptimizer() noexcept = default;
+	SGDOptimizer(const SGDOptimizer&) = delete;
+	virtual ~SGDOptimizer() override = default;
+
+public:
+	SGDOptimizer& operator=(const SGDOptimizer&) = delete;
+
+public:
+	float GetLearningRate() const noexcept;
+	void SetLearingRate(float newLearningRate) noexcept;
+
+	virtual void Optimize(const TrainData& trainData, std::size_t epoch) override;
+};
