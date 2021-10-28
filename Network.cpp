@@ -50,9 +50,14 @@ std::vector<Matrix> FFLayer::GetVariableGradients() const {
 	return { m_WeightGradients, m_BiasGradients };
 }
 void FFLayer::UpdateVariables(const std::vector<Matrix>& deltas) {
+	assert(deltas.size() == 2);
+
 	m_Weights += deltas[0];
 	m_Biases += deltas[1];
 }
+
+ActivationLayer::ActivationLayer(ActivationFunction primitiveFunction, ActivationFunction derivativeFunction) noexcept
+	: m_PrimitiveFunction(primitiveFunction), m_DerivativeFunction(derivativeFunction) {}
 
 Layer* Network::GetLayer(std::size_t index) noexcept {
 	return m_Layers[index].get();
@@ -102,3 +107,47 @@ void Network::Optimize(const TrainData& trainData, std::size_t epoch) {
 
 	m_Optimizer->Optimize(trainData, epoch);
 }
+
+Matrix ActivationLayer::Forward(const Matrix& input) {
+	m_LastInput = input;
+	m_LastOutput = input;
+
+	const auto [row, column] = input.GetSize();
+
+	for (std::size_t i = 0; i < row; ++i) {
+		for (std::size_t j = 0; j < column; ++j) {
+			m_LastOutput(i, j) = m_PrimitiveFunction(m_LastOutput(i, j));
+		}
+	}
+
+	return m_LastOutput;
+}
+Matrix ActivationLayer::Backward(const Matrix& gradient) {
+	Matrix myGradient = m_LastInput;
+	const auto [row, column] = m_LastInput.GetSize();
+
+	for (std::size_t i = 0; i < row; ++i) {
+		for (std::size_t j = 0; j < column; ++j) {
+			myGradient(i, j) = m_DerivativeFunction(myGradient(i, j));
+		}
+	}
+
+	return myGradient.HadamardProduct(gradient);
+}
+Matrix ActivationLayer::GetLastInput() const {
+	return m_LastInput;
+}
+Matrix ActivationLayer::GetLastOutput() const {
+	return m_LastOutput;
+}
+
+bool ActivationLayer::HasVariable() const noexcept {
+	return false;
+}
+std::vector<Matrix> ActivationLayer::GetVariables() const {
+	return {};
+}
+std::vector<Matrix> ActivationLayer::GetVariableGradients() const {
+	return {};
+}
+void ActivationLayer::UpdateVariables(const std::vector<Matrix>&) {}

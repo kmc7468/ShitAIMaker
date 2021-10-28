@@ -54,6 +54,33 @@ public:
 	virtual void UpdateVariables(const std::vector<Matrix>& deltas) override;
 };
 
+using ActivationFunction = float(*)(float);
+
+class ActivationLayer final : public Layer {
+private:
+	ActivationFunction m_PrimitiveFunction, m_DerivativeFunction;
+	Matrix m_LastInput, m_LastOutput;
+
+public:
+	ActivationLayer(ActivationFunction primitiveFunction, ActivationFunction derivativeFunction) noexcept;
+	ActivationLayer(const ActivationLayer&) = delete;
+	virtual ~ActivationLayer() override = default;
+
+public:
+	FFLayer& operator=(const FFLayer&) = delete;
+
+public:
+	virtual Matrix Forward(const Matrix& input) override;
+	virtual Matrix Backward(const Matrix& gradient) override;
+	virtual Matrix GetLastInput() const override;
+	virtual Matrix GetLastOutput() const override;
+
+	virtual bool HasVariable() const noexcept override;
+	virtual std::vector<Matrix> GetVariables() const override;
+	virtual std::vector<Matrix> GetVariableGradients() const override;
+	virtual void UpdateVariables(const std::vector<Matrix>& deltas) override;
+};
+
 class Optimizer;
 
 using TrainSample = std::pair<Matrix, Matrix>;
