@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <utility>
 #include <vector>
 
 class Layer {
@@ -29,6 +30,9 @@ public:
 
 class Optimizer;
 
+using TrainSample = std::pair<Matrix, Matrix>;
+using TrainData = std::vector<TrainSample>;
+
 class Network final {
 private:
 	std::vector<std::unique_ptr<Layer>> m_Layers;
@@ -49,5 +53,5 @@ public:
 
 	Optimizer* GetOptimizer() noexcept;
 	void SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept;
-	void Optimize(std::size_t epochCount);
+	void Optimize(const TrainData& trainData, std::size_t epoch);
 };

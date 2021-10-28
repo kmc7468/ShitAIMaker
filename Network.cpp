@@ -3,7 +3,6 @@
 #include "Optimizer.hpp"
 
 #include <cassert>
-#include <utility>
 
 void Network::AddLayer(std::unique_ptr<Layer>&& newLayer) {
 	assert(newLayer != nullptr);
@@ -33,11 +32,9 @@ void Network::SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept {
 	m_Optimizer->Attach(this);
 }
 
-void Network::Optimize(std::size_t epochCount) {
+void Network::Optimize(const TrainData& trainData, std::size_t epoch) {
 	assert(!m_Layers.empty());
 	assert(m_Optimizer != nullptr);
 
-	for (std::size_t i = 0; i < epochCount; ++i) {
-		m_Optimizer->Optimize();
-	}
+	m_Optimizer->Optimize(trainData, epoch);
 }
