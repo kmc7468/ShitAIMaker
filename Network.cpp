@@ -3,6 +3,56 @@
 #include "Optimizer.hpp"
 
 #include <cassert>
+#include <random>
+
+FFLayer::FFLayer(std::size_t inputSize, std::size_t outputSize)
+	: m_Weights(inputSize, outputSize), m_Biases(1, outputSize) {
+	std::mt19937 mt(std::random_device{}());
+	std::uniform_real_distribution<float> dist(-1.f, 1.f);
+
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		for (std::size_t j = 0; j < outputSize; ++j) {
+			m_Weights(i, j) = dist(mt);
+
+			if (i == 0) {
+				m_Biases(i, j) = dist(mt);
+			}
+		}
+	}
+}
+
+Matrix FFLayer::Forward(const Matrix& input) {
+	m_LastInput = input;
+	m_LastOutput = m_Weights * input + m_Biases;
+
+	return m_LastOutput;
+}
+Matrix FFLayer::Backward(const Matrix& gradient) {
+	m_WeightGradients = gradient * Transpose(m_LastInput);
+	m_BiasGradients = gradient * Matrix(m_LastInput.GetRowSize(), 1, 1.f);
+
+	return Transpose(m_LastInput) * gradient;
+}
+Matrix FFLayer::GetLastInput() const {
+	return m_LastInput;
+}
+Matrix FFLayer::GetLastOutput() const {
+	return m_LastOutput;
+}
+
+bool FFLayer::HasVariable() const noexcept {
+	return true;
+}
+std::vector<Matrix> FFLayer::GetVariables() const {
+	return { m_Weights, m_Biases };
+}
+std::vector<Matrix> FFLayer::GetVariableGradients() const {
+	return { m_WeightGradients, m_BiasGradients };
+}
+void FFLayer::UpdateVariables(const std::vector<Matrix>& deltas) {
+	m_Weights += deltas[0];
+	m_Biases += deltas[1];
+}
 
 Layer* Network::GetLayer(std::size_t index) noexcept {
 	return m_Layers[index].get();
@@ -15,7 +65,6 @@ void Network::AddLayer(std::unique_ptr<Layer>&& newLayer) {
 
 	m_Layers.push_back(std::move(newLayer));
 }
-
 Matrix Network::Forward(const Matrix& input) {
 	assert(!m_Layers.empty());
 

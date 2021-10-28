@@ -11,7 +11,7 @@ class Layer {
 public:
 	Layer() noexcept = default;
 	Layer(const Layer&) = delete;
-	virtual ~Layer() = 0;
+	virtual ~Layer() = default;
 
 public:
 	Layer& operator=(const Layer&) = delete;
@@ -23,9 +23,35 @@ public:
 	virtual Matrix GetLastOutput() const = 0;
 
 	virtual bool HasVariable() const noexcept = 0;
-	virtual Matrix GetVariable() const = 0;
-	virtual Matrix GetVariableGradient() const = 0;
-	virtual void UpdateVariable(const Matrix& delta) = 0;
+	virtual std::vector<Matrix> GetVariables() const = 0;
+	virtual std::vector<Matrix> GetVariableGradients() const = 0;
+	virtual void UpdateVariables(const std::vector<Matrix>& deltas) = 0;
+};
+
+class FFLayer final : public Layer {
+private:
+	Matrix m_Weights, m_Biases;
+	Matrix m_LastInput, m_LastOutput;
+	Matrix m_WeightGradients, m_BiasGradients;
+
+public:
+	FFLayer(std::size_t inputSize, std::size_t outputSize);
+	FFLayer(const FFLayer&) = delete;
+	virtual ~FFLayer() override = default;
+
+public:
+	FFLayer& operator=(const FFLayer&) = delete;
+
+public:
+	virtual Matrix Forward(const Matrix& input) override;
+	virtual Matrix Backward(const Matrix& gradient) override;
+	virtual Matrix GetLastInput() const override;
+	virtual Matrix GetLastOutput() const override;
+
+	virtual bool HasVariable() const noexcept override;
+	virtual std::vector<Matrix> GetVariables() const override;
+	virtual std::vector<Matrix> GetVariableGradients() const override;
+	virtual void UpdateVariables(const std::vector<Matrix>& deltas) override;
 };
 
 class Optimizer;

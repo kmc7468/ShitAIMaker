@@ -82,9 +82,12 @@ void SGDOptimizer::Optimize(const TrainData& trainData, std::size_t epoch) {
 				Layer* const layer = network->GetLayer(layerCount - j - 1);
 				if (!layer->HasVariable()) continue;
 
-				const Matrix layerGradient = layer->GetVariableGradient();
-				const Matrix layerDelta = -m_LearningRate * layerGradient;
-				layer->UpdateVariable(layerDelta);
+				std::vector<Matrix> layerDeltas = layer->GetVariableGradients();
+				for (auto& layerDelta : layerDeltas) {
+					layerDelta *= -m_LearningRate;
+				}
+
+				layer->UpdateVariables(layerDeltas);
 			}
 		}
 	}
