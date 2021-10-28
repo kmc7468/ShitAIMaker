@@ -2,6 +2,7 @@
 
 #include "Matrix.hpp"
 
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -26,20 +27,27 @@ public:
 	virtual void UpdateVariable(const Matrix& delta) = 0;
 };
 
+class Optimizer;
+
 class Network final {
 private:
 	std::vector<std::unique_ptr<Layer>> m_Layers;
+	std::unique_ptr<Optimizer> m_Optimizer;
 
 public:
 	Network() noexcept = default;
-	Network(Network&& network) noexcept = default;
+	Network(const Network&) = delete;
 	~Network() = default;
 
 public:
-	Network& operator=(Network&& network) noexcept = default;
+	Network& operator=(const Network&) = delete;
 
 public:
 	void AddLayer(std::unique_ptr<Layer>&& newLayer);
 
 	Matrix Run(const Matrix& input);
+
+	Optimizer* GetOptimizer() noexcept;
+	void SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept;
+	void Optimize(std::size_t epochCount);
 };
