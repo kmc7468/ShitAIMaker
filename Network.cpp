@@ -3,19 +3,21 @@
 #include "Optimizer.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <random>
+#include <ranges>
 
 FFLayer::FFLayer(std::size_t inputSize, std::size_t outputSize)
-	: m_Weights(inputSize, outputSize), m_Biases(1, outputSize) {
+	: m_Weights(outputSize, inputSize), m_Biases(outputSize, 1) {
 	std::mt19937 mt(std::random_device{}());
 	std::uniform_real_distribution<float> dist(-1.f, 1.f);
 
-	for (std::size_t i = 0; i < inputSize; ++i) {
-		for (std::size_t j = 0; j < outputSize; ++j) {
+	for (std::size_t i = 0; i < outputSize; ++i) {
+		for (std::size_t j = 0; j < inputSize; ++j) {
 			m_Weights(i, j) = dist(mt);
 
-			if (i == 0) {
-				m_Biases(i, j) = dist(mt);
+			if (j == 0) {
+				m_Biases(i, 0) = dist(mt);
 			}
 		}
 	}
@@ -29,9 +31,9 @@ Matrix FFLayer::Forward(const Matrix& input) {
 }
 Matrix FFLayer::Backward(const Matrix& gradient) {
 	m_WeightGradients = gradient * Transpose(m_LastInput);
-	m_BiasGradients = gradient * Matrix(m_LastInput.GetRowSize(), 1, 1.f);
+	m_BiasGradients = gradient * Matrix(1, m_LastInput.GetColumnSize(), 1.f);
 
-	return Transpose(m_LastInput) * gradient;
+	return Transpose(m_Weights) * gradient;
 }
 Matrix FFLayer::GetLastInput() const {
 	return m_LastInput;
@@ -54,6 +56,32 @@ void FFLayer::UpdateVariables(const std::vector<Matrix>& deltas) {
 
 	m_Weights += deltas[0];
 	m_Biases += deltas[1];
+}
+
+float Sigmoid(float x) {
+	return 1 / (1 + std::expf(-x));
+}
+float DSigmoid(float x) {
+	const float y = Sigmoid(x);
+	return y * (1 - y);
+}
+float Tanh(float x) {
+	return std::tanhf(x);
+}
+float DTanh(float x) {
+	return 1 - std::powf(std::tanhf(x), 2);
+}
+float ReLU(float x) {
+	return std::max(x, 0.f);
+}
+float DReLU(float x) {
+	return x >= 0 ? 1.f : 0;
+}
+float LeakyReLU(float x) {
+	return std::max(0.01f * x, x);
+}
+float DLeakyReLU(float x) {
+	return x >= 0.f ? 1 : 0.01f;
 }
 
 ActivationLayer::ActivationLayer(ActivationFunction primitiveFunction, ActivationFunction derivativeFunction) noexcept
@@ -86,7 +114,7 @@ void Network::Backward(const Matrix& gradient) {
 
 	Matrix nextGradient = gradient;
 
-	for (auto& layer : m_Layers) {
+	for (auto& layer : std::ranges::views::reverse(m_Layers)) {
 		nextGradient = layer->Backward(nextGradient);
 	}
 }

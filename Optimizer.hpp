@@ -61,7 +61,7 @@ public:
 
 public:
 	float GetLearningRate() const noexcept;
-	void SetLearingRate(float newLearningRate) noexcept;
+	void SetLearningRate(float newLearningRate) noexcept;
 
 	virtual void Optimize(const TrainData& trainData, std::size_t epoch) override;
 };

@@ -130,7 +130,7 @@ std::ostream& operator<<(std::ostream& stream, const Matrix& matrix) {
 		}
 
 		if (i == row - 1) {
-			stream << " ]";
+			stream << ']';
 		} else {
 			stream << "\n  ";
 		}

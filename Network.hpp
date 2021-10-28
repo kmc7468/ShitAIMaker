@@ -56,6 +56,15 @@ public:
 
 using ActivationFunction = float(*)(float);
 
+float Sigmoid(float x);
+float DSigmoid(float x);
+float Tanh(float x);
+float DTanh(float x);
+float ReLU(float x);
+float DReLU(float x);
+float LeakyReLU(float x);
+float DLeakyReLU(float x);
+
 class ActivationLayer final : public Layer {
 private:
 	ActivationFunction m_PrimitiveFunction, m_DerivativeFunction;

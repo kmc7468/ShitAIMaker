@@ -18,20 +18,20 @@ public:
 		const Matrix error = input - target;
 		float result = 0;
 
-		for (std::size_t i = 0; i < row; ++i) {
+		for (std::size_t i = 0; i < column; ++i) {
 			float squared = 0;
 
-			for (std::size_t j = 0; j < column; ++j) {
-				squared += std::powf(error(i, j), 2);
+			for (std::size_t j = 0; j < row; ++j) {
+				squared += std::powf(error(j, i), 2);
 			}
 
 			result += std::sqrtf(squared);
 		}
 
-		return result / row;
+		return result / column;
 	}
 	virtual Matrix Backward(const Matrix& input, const Matrix& target) const override {
-		return 2 * (input - target);
+		return (2.f / input.GetColumnSize()) * (input - target);
 	}
 };
 
@@ -58,7 +58,7 @@ void Optimizer::SetLossFunction(const std::shared_ptr<const LossFunction>& lossF
 float SGDOptimizer::GetLearningRate() const noexcept {
 	return m_LearningRate;
 }
-void SGDOptimizer::SetLearingRate(float newLearningRate) noexcept {
+void SGDOptimizer::SetLearningRate(float newLearningRate) noexcept {
 	assert(newLearningRate > 0.f);
 	assert(newLearningRate < 1.f);
 
