@@ -45,6 +45,8 @@ public:
 	Matrix& Transpose();
 };
 
+Matrix RandomMatrix(std::size_t rowSize, std::size_t columnSize, float elementMin = -1, float elementMax = 1);
+
 Matrix operator*(float scalar, const Matrix& matrix);
 std::ostream& operator<<(std::ostream& stream, const Matrix& matrix);
 

@@ -30,6 +30,7 @@ public:
 	std::string_view GetName() const noexcept;
 	const Matrix& GetValue() const noexcept;
 	Matrix& GetValue() noexcept;
+	Matrix& SetValue(Matrix newValue) noexcept;
 };
 
 class ReadonlyVariable final {
@@ -93,8 +94,10 @@ public:
 	std::string_view GetName() const noexcept;
 	const Matrix& GetValue() const noexcept;
 	Matrix& GetValue() noexcept;
+	Matrix& SetValue(Matrix newValue) noexcept;
 	const Matrix& GetGradient() const noexcept;
 	Matrix& GetGradient() noexcept;
+	Matrix& SetGradient(Matrix newGradient) noexcept;
 	const VariableTable& GetVariableTable() const noexcept;
 	VariableTable& GetVariableTable() noexcept;
 };
@@ -142,3 +145,84 @@ public:
 	std::vector<Parameter> GetAllParameters();
 	Parameter AddParameter(std::string name, Matrix initialValue = {});
 };
+
+class Layer {
+private:
+	std::string m_Name;
+	VariableTable m_VariableTable;
+	ParameterTable m_ParameterTable;
+
+	Variable m_LastForwardInput, m_LastForwardOutput;
+	Variable m_LastBackwardInput, m_LastBackwardOutput;
+
+public:
+	Layer(std::string name);
+	Layer(const Layer&) = delete;
+	virtual ~Layer() = default;
+
+public:
+	Layer& operator=(const Layer&) = delete;
+
+public:
+	Matrix Forward(const Matrix& input);
+	const Matrix& GetLastForwardInput() const noexcept;
+	const Matrix& GetLastForwardOutput() const noexcept;
+
+	Matrix Backward(const Matrix& input);
+	const Matrix& GetLastBackwardInput() const noexcept;
+	const Matrix& GetLastBackwardOutput() const noexcept;
+
+	const VariableTable& GetVariableTable() const noexcept;
+	VariableTable& GetVariableTable() noexcept;
+	const ParameterTable& GetParameterTable() const noexcept;
+	ParameterTable& GetParameterTable() noexcept;
+
+protected:
+	virtual Matrix ForwardImpl(const Matrix& input) = 0;
+	virtual Matrix BackwardImpl(const Matrix& input) = 0;
+};
+
+class FCLayer final : public Layer {
+private:
+	Parameter m_Weights, m_Biases;
+
+public:
+	FCLayer(std::size_t inputSize, std::size_t outputSize);
+	FCLayer(const FCLayer&) = delete;
+	virtual ~FCLayer() override = default;
+
+public:
+	FCLayer& operator=(const FCLayer&) = delete;
+
+protected:
+	virtual Matrix ForwardImpl(const Matrix& input) override;
+	virtual Matrix BackwardImpl(const Matrix& input) override;
+};
+
+using AFunction = float(*)(float);
+
+class ALayer final : public Layer {
+private:
+	AFunction m_Primitive, m_Derivative;
+
+public:
+	ALayer(AFunction primitive, AFunction derivative);
+	ALayer(const ALayer&) = delete;
+	virtual ~ALayer() override = default;
+
+public:
+	ALayer& operator=(const ALayer&) = delete;
+
+protected:
+	virtual Matrix ForwardImpl(const Matrix& input) override;
+	virtual Matrix BackwardImpl(const Matrix& input) override;
+};
+
+float Sigmoid(float x);
+float SigmoidDerivative(float x);
+float Tanh(float x);
+float TanhDerivative(float x);
+float ReLU(float x);
+float ReLUDerivative(float x);
+float LeakyReLU(float x);
+float LeakyReLUDerivative(float x);

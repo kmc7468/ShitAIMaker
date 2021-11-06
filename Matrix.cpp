@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <random>
 #include <utility>
 
 Matrix::Matrix(std::size_t rowSize, std::size_t columnSize, float data)
@@ -111,6 +112,21 @@ Matrix& Matrix::HadamardProduct(const Matrix& other) noexcept {
 }
 Matrix& Matrix::Transpose() {
 	return *this = ::Transpose(*this);
+}
+
+Matrix RandomMatrix(std::size_t rowSize, std::size_t columnSize, float elementMin, float elementMax) {
+	static std::mt19937 mt(std::random_device{}());
+	std::uniform_real_distribution<float> dist(elementMin, elementMax);
+
+	Matrix result(rowSize, columnSize);
+
+	for (std::size_t i = 0; i < rowSize; ++i) {
+		for (std::size_t j = 0; j < columnSize; ++j) {
+			result(i, j) = dist(mt);
+		}
+	}
+
+	return result;
 }
 
 Matrix operator*(float scalar, const Matrix& matrix) {

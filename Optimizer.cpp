@@ -1,16 +1,18 @@
 #include "Optimizer.hpp"
 
+#include "Layer.hpp"
+
 #include <cassert>
 #include <cmath>
 
-class MSE final : public LossFunction {
+class MSEImpl final : public LossFunction {
 public:
-	MSE() noexcept = default;
-	MSE(const MSE&) = delete;
-	virtual ~MSE() override = default;
+	MSEImpl() noexcept = default;
+	MSEImpl(const MSEImpl&) = delete;
+	virtual ~MSEImpl() override = default;
 
 public:
-	MSE& operator=(const MSE&) = delete;
+	MSEImpl& operator=(const MSEImpl&) = delete;
 
 public:
 	virtual float Forward(const Matrix& input, const Matrix& target) const override {
@@ -35,15 +37,18 @@ public:
 	}
 };
 
-const std::shared_ptr<const LossFunction> LossFunction::MSE = std::make_shared<::MSE>();
+const std::shared_ptr<const LossFunction> MSE = std::make_shared<MSEImpl>();
 
-void Optimizer::Attach(Network* network) noexcept {
+void Optimizer::Attach(Network& network) noexcept {
 	assert(m_TargetNetwork == nullptr);
 
-	m_TargetNetwork = network;
+	m_TargetNetwork = &network;
 }
-Network* Optimizer::GetTargetNetwork() noexcept {
-	return m_TargetNetwork;
+const Network& Optimizer::GetTargetNetwork() const noexcept {
+	return *m_TargetNetwork;
+}
+Network& Optimizer::GetTargetNetwork() noexcept {
+	return *m_TargetNetwork;
 }
 
 std::shared_ptr<const LossFunction> Optimizer::GetLossFunction() const noexcept {
@@ -60,34 +65,28 @@ float SGDOptimizer::GetLearningRate() const noexcept {
 }
 void SGDOptimizer::SetLearningRate(float newLearningRate) noexcept {
 	assert(newLearningRate > 0.f);
-	assert(newLearningRate < 1.f);
+	assert(newLearningRate <= 1.f);
 
 	m_LearningRate = newLearningRate;
 }
 
 void SGDOptimizer::Optimize(const TrainData& trainData, std::size_t epoch) {
-	Network* const network = GetTargetNetwork();
-	const std::size_t layerCount = network->GetLayerCount();
+	Network& network = GetTargetNetwork();
+	const std::size_t layerCount = network.GetLayerCount();
 
-	const std::shared_ptr<const LossFunction> lossFunction = GetLossFunction();
+	const auto lossFunction = GetLossFunction();
 	const std::size_t sampleCount = trainData.size();
 
 	for (std::size_t i = 0; i < epoch; ++i) {
 		for (const auto& sample : trainData) {
-			const Matrix output = network->Forward(sample.first);
+			const Matrix output = network.Forward(sample.first);
 			const Matrix gradient = lossFunction->Backward(output, sample.second);
-			network->Backward(gradient);
+			network.Backward(gradient);
 
 			for (std::size_t j = 0; j < layerCount; ++j) {
-				Layer* const layer = network->GetLayer(layerCount - j - 1);
-				if (!layer->HasVariable()) continue;
-
-				std::vector<Matrix> layerDeltas = layer->GetVariableGradients();
-				for (auto& layerDelta : layerDeltas) {
-					layerDelta *= -m_LearningRate;
+				for (auto& parameter : network.GetLayer(layerCount - j - 1).GetParameterTable().GetAllParameters()) {
+					parameter.GetValue() -= m_LearningRate * parameter.GetGradient();
 				}
-
-				layer->UpdateVariables(layerDeltas);
 			}
 		}
 	}

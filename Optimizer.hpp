@@ -8,9 +8,6 @@
 
 class LossFunction {
 public:
-	static const std::shared_ptr<const LossFunction> MSE;
-
-public:
 	LossFunction() noexcept = default;
 	LossFunction(const LossFunction&) = delete;
 	virtual ~LossFunction() = default;
@@ -22,6 +19,8 @@ public:
 	virtual float Forward(const Matrix& input, const Matrix& target) const = 0;
 	virtual Matrix Backward(const Matrix& input, const Matrix& target) const = 0;
 };
+
+extern const std::shared_ptr<const LossFunction> MSE;
 
 class Optimizer {
 private:
@@ -38,8 +37,9 @@ public:
 	Optimizer& operator=(const Optimizer&) = delete;
 
 public:
-	void Attach(Network* network) noexcept;
-	Network* GetTargetNetwork() noexcept;
+	void Attach(Network& network) noexcept;
+	const Network& GetTargetNetwork() const noexcept;
+	Network& GetTargetNetwork() noexcept;
 
 	std::shared_ptr<const LossFunction> GetLossFunction() const noexcept;
 	void SetLossFunction(const std::shared_ptr<const LossFunction>& lossFunction) noexcept;
