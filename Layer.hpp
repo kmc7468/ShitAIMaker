@@ -3,8 +3,11 @@
 #include "Matrix.hpp"
 
 #include <map>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <vector>
 
 class ReadonlyVariable;
 
@@ -66,4 +69,76 @@ public:
 	ReadonlyVariable GetVariable(const std::string& name) const noexcept;
 	Variable GetVariable(const std::string& name) noexcept;
 	Variable AddVariable(std::string name, Matrix initialValue = {});
+};
+
+class ReadonlyParameter;
+
+class Parameter final {
+	friend class ReadonlyParameter;
+
+private:
+	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator m_Iterator;
+
+public:
+	Parameter(
+		std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator iterator) noexcept;
+	Parameter(const Parameter& other) noexcept = default;
+	~Parameter() = default;
+
+public:
+	Parameter& operator=(const Parameter& other) noexcept = default;
+	bool operator==(const Parameter& other) noexcept;
+
+public:
+	std::string_view GetName() const noexcept;
+	const Matrix& GetValue() const noexcept;
+	Matrix& GetValue() noexcept;
+	const Matrix& GetGradient() const noexcept;
+	Matrix& GetGradient() noexcept;
+	const VariableTable& GetVariableTable() const noexcept;
+	VariableTable& GetVariableTable() noexcept;
+};
+
+class ReadonlyParameter final {
+private:
+	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator m_Iterator;
+
+public:
+	ReadonlyParameter(
+		std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator iterator) noexcept;
+	ReadonlyParameter(const Parameter& parameter) noexcept;
+	ReadonlyParameter(const ReadonlyParameter& other) noexcept = default;
+	~ReadonlyParameter() = default;
+
+public:
+	ReadonlyParameter& operator=(const Parameter& parameter) noexcept;
+	ReadonlyParameter& operator=(const ReadonlyParameter& other) noexcept = default;
+	bool operator==(const Parameter& parameter) noexcept;
+	bool operator==(const ReadonlyParameter& other) noexcept;
+
+public:
+	std::string_view GetName() const noexcept;
+	const Matrix& GetValue() const noexcept;
+	const Matrix& GetGradient() const noexcept;
+	const VariableTable& GetVariableTable() const noexcept;
+};
+
+class ParameterTable final {
+private:
+	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>> m_Parameters;
+
+public:
+	ParameterTable() = default;
+	ParameterTable(const ParameterTable&) = delete;
+	~ParameterTable() = default;
+
+public:
+	ParameterTable& operator=(const ParameterTable&) = delete;
+
+public:
+	ReadonlyParameter GetParameter(const std::string& name) const noexcept;
+	Parameter GetParameter(const std::string& name) noexcept;
+	std::vector<ReadonlyParameter> GetAllParameters() const;
+	std::vector<Parameter> GetAllParameters();
+	Parameter AddParameter(std::string name);
 };
