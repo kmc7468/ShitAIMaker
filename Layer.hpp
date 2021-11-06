@@ -140,5 +140,5 @@ public:
 	Parameter GetParameter(const std::string& name) noexcept;
 	std::vector<ReadonlyParameter> GetAllParameters() const;
 	std::vector<Parameter> GetAllParameters();
-	Parameter AddParameter(std::string name);
+	Parameter AddParameter(std::string name, Matrix initialValue = {});
 };

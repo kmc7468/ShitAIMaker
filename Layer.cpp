@@ -155,10 +155,10 @@ std::vector<Parameter> ParameterTable::GetAllParameters() {
 
 	return result;
 }
-Parameter ParameterTable::AddParameter(std::string name) {
+Parameter ParameterTable::AddParameter(std::string name, Matrix initialValue) {
 	const auto [iterator, isSuccess] =
 		m_Parameters.insert(std::make_pair(std::move(name),
-			std::make_tuple(Matrix{}, Matrix{}, std::make_unique<VariableTable>())));
+			std::make_tuple(initialValue, Matrix{}, std::make_unique<VariableTable>())));
 	assert(isSuccess);
 
 	return iterator;
