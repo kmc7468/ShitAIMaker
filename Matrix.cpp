@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <random>
 #include <utility>
 
@@ -11,7 +12,11 @@ Matrix::Matrix(std::size_t rowSize, std::size_t columnSize, float data)
 	assert(columnSize > 0);
 }
 Matrix::Matrix(std::size_t rowSize, std::size_t columnSize, std::vector<float> elements) noexcept
-	: m_Elements(std::move(elements)), m_RowSize(rowSize), m_ColumnSize(columnSize) {}
+	: m_Elements(std::move(elements)), m_RowSize(rowSize), m_ColumnSize(columnSize) {
+	assert(rowSize > 0);
+	assert(columnSize > 0);
+	assert(rowSize * columnSize == m_Elements.size());
+}
 
 bool Matrix::operator==(const Matrix& other) const noexcept {
 	return GetSize() == other.GetSize() &&
@@ -115,6 +120,10 @@ Matrix& Matrix::Transpose() {
 }
 
 Matrix RandomMatrix(std::size_t rowSize, std::size_t columnSize, float elementMin, float elementMax) {
+	assert(std::isfinite(elementMin));
+	assert(std::isfinite(elementMax));
+	assert(elementMin < elementMax);
+
 	static std::mt19937 mt(std::random_device{}());
 	std::uniform_real_distribution<float> dist(elementMin, elementMax);
 

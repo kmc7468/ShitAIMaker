@@ -71,6 +71,9 @@ void SGDOptimizer::SetLearningRate(float newLearningRate) noexcept {
 }
 
 void SGDOptimizer::Optimize(const TrainData& trainData, std::size_t epoch) {
+	assert(trainData.size() > 0);
+	assert(epoch > 0);
+
 	Network& network = GetTargetNetwork();
 	const std::size_t layerCount = network.GetLayerCount();
 
