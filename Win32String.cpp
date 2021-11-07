@@ -14,10 +14,10 @@ namespace {
 			nullptr, 0);
 		assert(length > 0);
 
-		std::wstring result(length - 1, 0);
+		std::wstring result(length, 0);
 		MultiByteToWideChar(codePage, 0,
 			reinterpret_cast<const char*>(multiByteString.data()), static_cast<int>(multiByteString.size()),
-			result.data(), length);
+			result.data(), length + 1);
 
 		return result;
 	}
@@ -30,10 +30,10 @@ namespace {
 			nullptr, 0, nullptr, nullptr);
 		assert(length > 0);
 
-		std::basic_string<Char> result(length - 1, 0);
+		std::basic_string<Char> result(length, 0);
 		WideCharToMultiByte(codePage, 0,
 			wideCharString.data(), static_cast<int>(wideCharString.size()),
-			reinterpret_cast<char*>(result.data()), length, nullptr, nullptr);
+			reinterpret_cast<char*>(result.data()), length + 1, nullptr, nullptr);
 
 		return result;
 	}

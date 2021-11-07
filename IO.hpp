@@ -8,7 +8,6 @@
 #include <istream>
 #include <ostream>
 #include <string>
-#include <string_view>
 
 class BinaryAdaptor final {
 private:
@@ -35,7 +34,7 @@ public:
 	float ReadFloat();
 
 	void Write(const void* array, std::size_t byteCount);
-	void Write(const std::string_view& string);
+	void Write(const std::string& string);
 	void Write(const Matrix& matrix);
 	void Write(std::int32_t integer);
 	void Write(std::int64_t integer);

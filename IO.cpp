@@ -1,5 +1,7 @@
 #include "IO.hpp"
 
+#include "PAL.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -29,12 +31,12 @@ void BinaryAdaptor::ReadBytes(void* array, std::size_t byteCount) {
 	m_IStream->read(static_cast<char*>(array), static_cast<std::streamsize>(byteCount));
 }
 std::string BinaryAdaptor::ReadString() {
-	const std::uint32_t length = ReadInt32();
-	std::string result(length, 0);
+	const std::uint32_t utf8Length = ReadInt32();
+	std::u8string utf8(utf8Length, 0);
 
-	ReadBytes(result.data(), length);
+	ReadBytes(utf8.data(), utf8Length);
 
-	return result;
+	return EncodeToANSI(utf8);
 }
 Matrix BinaryAdaptor::ReadMatrix() {
 	const std::uint32_t row = ReadInt32();
@@ -85,9 +87,11 @@ void BinaryAdaptor::Write(const void* array, std::size_t byteCount) {
 
 	m_OStream->write(static_cast<const char*>(array), static_cast<std::streamsize>(byteCount));
 }
-void BinaryAdaptor::Write(const std::string_view& string) {
-	Write(static_cast<std::int32_t>(string.size()));
-	Write(string.data(), string.size());
+void BinaryAdaptor::Write(const std::string& string) {
+	const std::u8string utf8 = EncodeToUTF8(string);
+
+	Write(static_cast<std::int32_t>(utf8.size()));
+	Write(utf8.data(), utf8.size());
 }
 void BinaryAdaptor::Write(const Matrix& matrix) {
 	const auto [row, column] = matrix.GetSize();
