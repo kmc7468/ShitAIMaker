@@ -1,7 +1,6 @@
 #include "Project.hpp"
 
 #include <cassert>
-#include <cctype>
 #include <utility>
 
 ResourceObject::~ResourceObject() {}
@@ -55,7 +54,6 @@ ResourceDirectory::ResourceDirectory(std::string name, ResourceDirectory* parent
 ResourceDirectory& ResourceDirectory::CreateDirectory(std::string name,
 	std::chrono::system_clock::time_point creationTime) {
 	assert(name.size() > 0);
-	assert(std::ispunct(static_cast<unsigned char>(name.front())) == 0);
 
 	auto directory = std::unique_ptr<ResourceDirectory>(
 		new ResourceDirectory(name, this, std::move(creationTime)));
@@ -67,7 +65,6 @@ ResourceDirectory& ResourceDirectory::CreateDirectory(std::string name,
 ResourceFile& ResourceDirectory::CreateFile(std::string name,
 	std::chrono::system_clock::time_point creationTime) {
 	assert(name.size() > 0);
-	assert(std::ispunct(static_cast<unsigned char>(name.front())) == 0);
 
 	auto file = std::unique_ptr<ResourceFile>(
 		new ResourceFile(name, this, std::move(creationTime)));
@@ -93,4 +90,32 @@ bool ResourceFile::IsEmpty() const noexcept {
 }
 const Matrix* ResourceFile::IsMatrix() const noexcept {
 	return m_Content.index() == 1 ? &std::get<1>(m_Content) : nullptr;
+}
+
+std::string_view Project::GetName() const noexcept {
+	return m_Name;
+}
+void Project::SetName(std::string newName) noexcept {
+	m_Name = std::move(newName);
+}
+const std::filesystem::path& Project::GetPath() const noexcept {
+	return m_Path;
+}
+void Project::SetPath(std::filesystem::path newPath) noexcept {
+	assert(!newPath.empty());
+
+	m_Path = std::move(newPath);
+}
+
+const Network& Project::GetNetwork() const noexcept {
+	return m_Network;
+}
+Network& Project::GetNetwork() noexcept {
+	return m_Network;
+}
+const ResourceDirectory& Project::GetResources() const noexcept {
+	return m_Resources;
+}
+ResourceDirectory& Project::GetResources() noexcept {
+	return m_Resources;
 }

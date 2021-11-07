@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Matrix.hpp"
+#include "Network.hpp"
 
 #include <chrono>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -89,4 +91,32 @@ public:
 public:
 	bool IsEmpty() const noexcept;
 	const Matrix* IsMatrix() const noexcept;
+};
+
+class Project final {
+private:
+	std::string m_Name;
+	std::filesystem::path m_Path;
+
+	Network m_Network;
+	ResourceDirectory m_Resources;
+
+public:
+	Project() = default;
+	Project(const Project&) = delete;
+	~Project() = default;
+
+public:
+	Project& operator=(const Project&) = delete;
+
+public:
+	std::string_view GetName() const noexcept;
+	void SetName(std::string newName) noexcept;
+	const std::filesystem::path& GetPath() const noexcept;
+	void SetPath(std::filesystem::path newPath) noexcept;
+
+	const Network& GetNetwork() const noexcept;
+	Network& GetNetwork() noexcept;
+	const ResourceDirectory& GetResources() const noexcept;
+	ResourceDirectory& GetResources() noexcept;
 };
