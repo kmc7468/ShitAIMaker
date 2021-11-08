@@ -4,10 +4,19 @@
 
 #include <cassert>
 #include <cmath>
+#include <utility>
+
+LossFunction::LossFunction(std::string name) noexcept
+	: m_Name(std::move(name)) {}
+
+std::string_view LossFunction::GetName() const noexcept {
+	return m_Name;
+}
 
 class MSEImpl final : public LossFunction {
 public:
-	MSEImpl() noexcept = default;
+	MSEImpl()
+		: LossFunction("MSE") {}
 	MSEImpl(const MSEImpl&) = delete;
 	virtual ~MSEImpl() override = default;
 
@@ -39,6 +48,12 @@ public:
 
 const std::shared_ptr<const LossFunction> MSE = std::make_shared<MSEImpl>();
 
+Optimizer::Optimizer(std::string name) noexcept
+	: m_Name(std::move(name)) {}
+
+std::string_view Optimizer::GetName() const noexcept {
+	return m_Name;
+}
 void Optimizer::Attach(Network& network) noexcept {
 	assert(m_TargetNetwork == nullptr);
 
@@ -59,6 +74,9 @@ void Optimizer::SetLossFunction(const std::shared_ptr<const LossFunction>& lossF
 
 	m_LossFunction = lossFunction;
 }
+
+SGDOptimizer::SGDOptimizer()
+	: Optimizer("SGDOptimizer") {}
 
 float SGDOptimizer::GetLearningRate() const noexcept {
 	return m_LearningRate;

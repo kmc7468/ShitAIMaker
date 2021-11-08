@@ -5,10 +5,15 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <string_view>
 
 class LossFunction {
+private:
+	std::string m_Name;
+
 public:
-	LossFunction() noexcept = default;
+	LossFunction(std::string name) noexcept;
 	LossFunction(const LossFunction&) = delete;
 	virtual ~LossFunction() = default;
 
@@ -16,6 +21,8 @@ public:
 	LossFunction& operator=(const LossFunction&) = delete;
 
 public:
+	std::string_view GetName() const noexcept;
+
 	virtual float Forward(const Matrix& input, const Matrix& target) const = 0;
 	virtual Matrix Backward(const Matrix& input, const Matrix& target) const = 0;
 };
@@ -24,12 +31,13 @@ extern const std::shared_ptr<const LossFunction> MSE;
 
 class Optimizer {
 private:
+	std::string m_Name;
 	Network* m_TargetNetwork = nullptr;
 
 	std::shared_ptr<const LossFunction> m_LossFunction;
 
 public:
-	Optimizer() noexcept = default;
+	Optimizer(std::string name) noexcept;
 	Optimizer(const Optimizer&) = delete;
 	virtual ~Optimizer() = default;
 
@@ -37,6 +45,7 @@ public:
 	Optimizer& operator=(const Optimizer&) = delete;
 
 public:
+	std::string_view GetName() const noexcept;
 	void Attach(Network& network) noexcept;
 	const Network& GetTargetNetwork() const noexcept;
 	Network& GetTargetNetwork() noexcept;
@@ -52,7 +61,7 @@ private:
 	float m_LearningRate = 0.1f;
 
 public:
-	SGDOptimizer() noexcept = default;
+	SGDOptimizer();
 	SGDOptimizer(const SGDOptimizer&) = delete;
 	virtual ~SGDOptimizer() override = default;
 
