@@ -41,6 +41,8 @@ std::string BinaryAdaptor::ReadString() {
 Matrix BinaryAdaptor::ReadMatrix() {
 	const std::uint32_t row = ReadInt32();
 	const std::uint32_t column = ReadInt32();
+	if (row == 0) return {};
+
 	Matrix result(row, column);
 
 	for (std::uint32_t i = 0; i < row; ++i) {
