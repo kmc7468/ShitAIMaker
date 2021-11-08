@@ -4,12 +4,15 @@
 #include "Network.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 class ResourceDirectory;
 class ResourceFile;
@@ -64,6 +67,8 @@ public:
 	ResourceDirectory& operator=(const ResourceDirectory&) = delete;
 
 public:
+	std::vector<std::pair<std::string, const ResourceObject*>> GetAllObjects() const;
+	std::vector<std::pair<std::string, ResourceObject*>> GetAllObjects();
 	ResourceDirectory& CreateDirectory(std::string name,
 		std::chrono::system_clock::time_point creationTime = std::chrono::system_clock::now());
 	ResourceFile& CreateFile(std::string name,
@@ -95,6 +100,10 @@ public:
 
 class Project final {
 private:
+	static inline const std::uint8_t m_MagicNumber[] = { 'S', 'H', 'I', 'T', 'A', 'M' };
+	static inline const std::uint32_t m_Version = 0x00000000;
+
+private:
 	std::string m_Name;
 	std::filesystem::path m_Path;
 
@@ -119,4 +128,7 @@ public:
 	Network& GetNetwork() noexcept;
 	const ResourceDirectory& GetResources() const noexcept;
 	ResourceDirectory& GetResources() noexcept;
+
+	void Load(std::filesystem::path path);
+	void Save() const;
 };
