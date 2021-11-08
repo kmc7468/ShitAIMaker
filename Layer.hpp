@@ -28,9 +28,8 @@ public:
 
 public:
 	std::string_view GetName() const noexcept;
-	const Matrix& GetValue() const noexcept;
-	Matrix& GetValue() noexcept;
-	Matrix& SetValue(Matrix newValue) noexcept;
+	Matrix& GetValue() const noexcept;
+	Matrix& SetValue(Matrix newValue) const noexcept;
 };
 
 class ReadonlyVariable final {
@@ -69,6 +68,8 @@ public:
 public:
 	ReadonlyVariable GetVariable(const std::string& name) const noexcept;
 	Variable GetVariable(const std::string& name) noexcept;
+	std::vector<ReadonlyVariable> GetAllVariables() const;
+	std::vector<Variable> GetAllVariables();
 	Variable AddVariable(std::string name, Matrix initialValue = {});
 };
 
@@ -92,14 +93,11 @@ public:
 
 public:
 	std::string_view GetName() const noexcept;
-	const Matrix& GetValue() const noexcept;
-	Matrix& GetValue() noexcept;
-	Matrix& SetValue(Matrix newValue) noexcept;
-	const Matrix& GetGradient() const noexcept;
-	Matrix& GetGradient() noexcept;
-	Matrix& SetGradient(Matrix newGradient) noexcept;
-	const VariableTable& GetVariableTable() const noexcept;
-	VariableTable& GetVariableTable() noexcept;
+	Matrix& GetValue() const noexcept;
+	Matrix& SetValue(Matrix newValue) const noexcept;
+	Matrix& GetGradient() const noexcept;
+	Matrix& SetGradient(Matrix newGradient) const noexcept;
+	VariableTable& GetVariableTable() const noexcept;
 };
 
 class ReadonlyParameter final {
@@ -164,9 +162,13 @@ public:
 	Layer& operator=(const Layer&) = delete;
 
 public:
+	std::string_view GetName() const noexcept;
+
 	Matrix Forward(const Matrix& input);
 	const Matrix& GetLastForwardInput() const noexcept;
 	const Matrix& GetLastForwardOutput() const noexcept;
+	virtual std::size_t GetForwardInputSize() const noexcept = 0;
+	virtual std::size_t GetForwardOutputSize() const noexcept = 0;
 
 	Matrix Backward(const Matrix& input);
 	const Matrix& GetLastBackwardInput() const noexcept;
@@ -194,28 +196,46 @@ public:
 public:
 	FCLayer& operator=(const FCLayer&) = delete;
 
+public:
+	virtual std::size_t GetForwardInputSize() const noexcept override;
+	virtual std::size_t GetForwardOutputSize() const noexcept override;
+
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) override;
 	virtual Matrix BackwardImpl(const Matrix& input) override;
 };
 
-using AFunction = float(*)(float);
+enum class AFunction {
+	Sigmoid,
+	Tanh,
+	ReLU,
+	LeakyReLU,
+};
 
 class ALayer final : public Layer {
 private:
-	AFunction m_Primitive, m_Derivative;
+	AFunction m_AFunction;
+	float (*m_Primitive)(float) = nullptr;
+	float (*m_Derivative)(float) = nullptr;
 
 public:
-	ALayer(AFunction primitive, AFunction derivative);
+	ALayer(AFunction aFunction);
 	ALayer(const ALayer&) = delete;
 	virtual ~ALayer() override = default;
 
 public:
 	ALayer& operator=(const ALayer&) = delete;
 
+public:
+	virtual std::size_t GetForwardInputSize() const noexcept override;
+	virtual std::size_t GetForwardOutputSize() const noexcept override;
+
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) override;
 	virtual Matrix BackwardImpl(const Matrix& input) override;
+
+public:
+	AFunction GetAFunction() const noexcept;
 };
 
 float Sigmoid(float x);

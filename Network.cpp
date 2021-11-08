@@ -2,6 +2,7 @@
 
 #include "Optimizer.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <ranges>
 
@@ -19,6 +20,7 @@ void Network::AddLayer(std::unique_ptr<Layer>&& newLayer) {
 
 	m_Layers.push_back(std::move(newLayer));
 }
+
 Matrix Network::Forward(const Matrix& input) {
 	assert(!m_Layers.empty());
 
@@ -38,6 +40,28 @@ void Network::Backward(const Matrix& input) {
 	for (auto& layer : std::ranges::views::reverse(m_Layers)) {
 		nextInput = layer->Backward(nextInput);
 	}
+}
+std::size_t Network::GetInputSize() const noexcept {
+	assert(!m_Layers.empty());
+
+	for (const auto& layer : m_Layers) {
+		const std::size_t layerInputSize = layer->GetForwardInputSize();
+
+		if (layerInputSize > 0) return layerInputSize;
+	}
+
+	return 0;
+}
+std::size_t Network::GetOutputSize() const noexcept {
+	assert(!m_Layers.empty());
+
+	for (const auto& layer : std::ranges::views::reverse(m_Layers)) {
+		const std::size_t layerOutputSize = layer->GetForwardOutputSize();
+
+		if (layerOutputSize > 0) return layerOutputSize;
+	}
+
+	return 0;
 }
 
 const Optimizer& Network::GetOptimizer() const noexcept {

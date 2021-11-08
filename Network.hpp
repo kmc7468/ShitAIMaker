@@ -34,6 +34,8 @@ public:
 
 	Matrix Forward(const Matrix& input);
 	void Backward(const Matrix& input);
+	std::size_t GetInputSize() const noexcept;
+	std::size_t GetOutputSize() const noexcept;
 
 	const Optimizer& GetOptimizer() const noexcept;
 	Optimizer& GetOptimizer() noexcept;

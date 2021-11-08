@@ -15,13 +15,10 @@ bool Variable::operator==(const Variable& other) noexcept {
 std::string_view Variable::GetName() const noexcept {
 	return m_Iterator->first;
 }
-const Matrix& Variable::GetValue() const noexcept {
+Matrix& Variable::GetValue() const noexcept {
 	return m_Iterator->second;
 }
-Matrix& Variable::GetValue() noexcept {
-	return m_Iterator->second;
-}
-Matrix& Variable::SetValue(Matrix newValue) noexcept {
+Matrix& Variable::SetValue(Matrix newValue) const noexcept {
 	return m_Iterator->second = std::move(newValue);
 }
 
@@ -61,12 +58,26 @@ Variable VariableTable::GetVariable(const std::string& name) noexcept {
 
 	return iterator;
 }
-Variable VariableTable::AddVariable(std::string name, Matrix initialValue) {
-	const auto [iterator, isSuccess] =
-		m_Variables.insert(std::make_pair(std::move(name), std::move(initialValue)));
-	assert(isSuccess);
+std::vector<ReadonlyVariable> VariableTable::GetAllVariables() const {
+	std::vector<ReadonlyVariable> result;
 
-	return iterator;
+	for (auto iter = m_Variables.begin(); iter != m_Variables.end(); ++iter) {
+		result.emplace_back(iter);
+	}
+
+	return result;
+}
+std::vector<Variable> VariableTable::GetAllVariables() {
+	std::vector<Variable> result;
+
+	for (auto iter = m_Variables.begin(); iter != m_Variables.end(); ++iter) {
+		result.emplace_back(iter);
+	}
+
+	return result;
+}
+Variable VariableTable::AddVariable(std::string name, Matrix initialValue) {
+	return m_Variables.insert_or_assign(std::move(name), std::move(initialValue)).first;
 }
 
 Parameter::Parameter(
@@ -80,28 +91,19 @@ bool Parameter::operator==(const Parameter& other) noexcept {
 std::string_view Parameter::GetName() const noexcept {
 	return m_Iterator->first;
 }
-const Matrix& Parameter::GetValue() const noexcept {
+Matrix& Parameter::GetValue() const noexcept {
 	return std::get<0>(m_Iterator->second);
 }
-Matrix& Parameter::GetValue() noexcept {
-	return std::get<0>(m_Iterator->second);
-}
-Matrix& Parameter::SetValue(Matrix newValue) noexcept {
+Matrix& Parameter::SetValue(Matrix newValue) const noexcept {
 	return std::get<0>(m_Iterator->second) = std::move(newValue);
 }
-const Matrix& Parameter::GetGradient() const noexcept {
+Matrix& Parameter::GetGradient() const noexcept {
 	return std::get<1>(m_Iterator->second);
 }
-Matrix& Parameter::GetGradient() noexcept {
-	return std::get<1>(m_Iterator->second);
-}
-Matrix& Parameter::SetGradient(Matrix newGradient) noexcept {
+Matrix& Parameter::SetGradient(Matrix newGradient) const noexcept {
 	return std::get<1>(m_Iterator->second) = std::move(newGradient);
 }
-const VariableTable& Parameter::GetVariableTable() const noexcept {
-	return *std::get<2>(m_Iterator->second);
-}
-VariableTable& Parameter::GetVariableTable() noexcept {
+VariableTable& Parameter::GetVariableTable() const noexcept {
 	return *std::get<2>(m_Iterator->second);
 }
 
@@ -167,12 +169,8 @@ std::vector<Parameter> ParameterTable::GetAllParameters() {
 	return result;
 }
 Parameter ParameterTable::AddParameter(std::string name, Matrix initialValue) {
-	const auto [iterator, isSuccess] =
-		m_Parameters.insert(std::make_pair(std::move(name),
-			std::make_tuple(initialValue, Matrix{}, std::make_unique<VariableTable>())));
-	assert(isSuccess);
-
-	return iterator;
+	return m_Parameters.insert_or_assign(std::move(name),
+		std::make_tuple(initialValue, Matrix{}, std::make_unique<VariableTable>())).first;
 }
 
 Layer::Layer(std::string name)
@@ -181,6 +179,10 @@ Layer::Layer(std::string name)
 	m_LastForwardOutput(m_VariableTable.AddVariable("LastForwardOutput")),
 	m_LastBackwardInput(m_VariableTable.AddVariable("LastBackwardInput")),
 	m_LastBackwardOutput(m_VariableTable.AddVariable("LastBackwardOutput")) {}
+
+std::string_view Layer::GetName() const noexcept {
+	return m_Name;
+}
 
 Matrix Layer::Forward(const Matrix& input) {
 	return m_LastForwardOutput.SetValue(ForwardImpl(m_LastForwardInput.SetValue(input)));
@@ -220,8 +222,15 @@ FCLayer::FCLayer(std::size_t inputSize, std::size_t outputSize)
 	m_Weights(GetParameterTable().AddParameter("Weights", RandomMatrix(outputSize, inputSize))),
 	m_Biases(GetParameterTable().AddParameter("Biases", RandomMatrix(outputSize, 1))) {}
 
+std::size_t FCLayer::GetForwardInputSize() const noexcept {
+	return m_Weights.GetValue().GetColumnSize();
+}
+std::size_t FCLayer::GetForwardOutputSize() const noexcept {
+	return m_Weights.GetValue().GetRowSize();
+}
+
 Matrix FCLayer::ForwardImpl(const Matrix& input) {
-	return m_Weights.GetValue() * input + m_Biases.GetValue();
+	return m_Weights.GetValue() * input + m_Biases.GetValue() * Matrix(1, input.GetColumnSize(), 1);
 }
 Matrix FCLayer::BackwardImpl(const Matrix& input) {
 	m_Weights.SetGradient(input * Transpose(GetLastForwardInput()));
@@ -230,10 +239,40 @@ Matrix FCLayer::BackwardImpl(const Matrix& input) {
 	return Transpose(m_Weights.GetValue()) * input;
 }
 
-ALayer::ALayer(AFunction primitive, AFunction derivative)
-	: Layer("ALayer"), m_Primitive(primitive), m_Derivative(derivative) {
-	assert(primitive != nullptr);
-	assert(derivative != nullptr);
+ALayer::ALayer(AFunction aFunction)
+	: Layer("ALayer"), m_AFunction(aFunction) {
+	switch (aFunction) {
+	case AFunction::Sigmoid:
+		m_Primitive = Sigmoid;
+		m_Derivative = SigmoidDerivative;
+		break;
+
+	case AFunction::Tanh:
+		m_Primitive = Tanh;
+		m_Derivative = TanhDerivative;
+		break;
+
+	case AFunction::ReLU:
+		m_Primitive = ReLU;
+		m_Derivative = ReLUDerivative;
+		break;
+
+	case AFunction::LeakyReLU:
+		m_Primitive = LeakyReLU;
+		m_Derivative = LeakyReLUDerivative;
+		break;
+
+	default:
+		assert(false);
+		break;
+	}
+}
+
+std::size_t ALayer::GetForwardInputSize() const noexcept {
+	return 0;
+}
+std::size_t ALayer::GetForwardOutputSize() const noexcept {
+	return 0;
 }
 
 Matrix ALayer::ForwardImpl(const Matrix& input) {
@@ -259,6 +298,10 @@ Matrix ALayer::BackwardImpl(const Matrix& input) {
 	}
 
 	return HadamardProduct(result, input);
+}
+
+AFunction ALayer::GetAFunction() const noexcept {
+	return m_AFunction;
 }
 
 float Sigmoid(float x) {
