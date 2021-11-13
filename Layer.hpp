@@ -2,6 +2,7 @@
 
 #include "Matrix.hpp"
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <string>
@@ -79,11 +80,12 @@ class Parameter final {
 	friend class ReadonlyParameter;
 
 private:
-	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator m_Iterator;
+	std::map<std::string,
+		std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator m_Iterator;
 
 public:
-	Parameter(
-		std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator iterator) noexcept;
+	Parameter(std::map<std::string,
+		std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator iterator) noexcept;
 	Parameter(const Parameter& other) noexcept = default;
 	~Parameter() = default;
 
@@ -102,11 +104,12 @@ public:
 
 class ReadonlyParameter final {
 private:
-	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator m_Iterator;
+	std::map<std::string,
+		std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator m_Iterator;
 
 public:
-	ReadonlyParameter(
-		std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator iterator) noexcept;
+	ReadonlyParameter(std::map<std::string,
+		std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator iterator) noexcept;
 	ReadonlyParameter(const Parameter& parameter) noexcept;
 	ReadonlyParameter(const ReadonlyParameter& other) noexcept = default;
 	~ReadonlyParameter() = default;

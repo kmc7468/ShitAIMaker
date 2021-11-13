@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstddef>
 #include <utility>
 
 Variable::Variable(std::map<std::string, Matrix>::iterator iterator) noexcept
@@ -80,8 +79,8 @@ Variable VariableTable::AddVariable(std::string name, Matrix initialValue) {
 	return m_Variables.insert_or_assign(std::move(name), std::move(initialValue)).first;
 }
 
-Parameter::Parameter(
-	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator iterator) noexcept
+Parameter::Parameter(std::map<std::string,
+	std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::iterator iterator) noexcept
 	: m_Iterator(iterator) {}
 
 bool Parameter::operator==(const Parameter& other) noexcept {
@@ -107,8 +106,8 @@ VariableTable& Parameter::GetVariableTable() const noexcept {
 	return *std::get<2>(m_Iterator->second);
 }
 
-ReadonlyParameter::ReadonlyParameter(
-	std::map<std::string, std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator iterator) noexcept
+ReadonlyParameter::ReadonlyParameter(std::map<std::string,
+	std::tuple<Matrix, Matrix, std::unique_ptr<VariableTable>>>::const_iterator iterator) noexcept
 	: m_Iterator(iterator) {}
 ReadonlyParameter::ReadonlyParameter(const Parameter& parameter) noexcept
 	: m_Iterator(parameter.m_Iterator) {}

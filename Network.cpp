@@ -2,7 +2,6 @@
 
 #include "Optimizer.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <ranges>
 

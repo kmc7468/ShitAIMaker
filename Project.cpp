@@ -15,7 +15,8 @@ ResourceObject::~ResourceObject() {}
 
 ResourceObject::ResourceObject(std::string name, ResourceDirectory* parent,
 	std::chrono::system_clock::time_point creationTime)
-	: m_Name(std::move(name)), m_Parent(parent), m_CreationTime(std::move(creationTime)), m_LastEditTime(m_CreationTime) {}
+	: m_Name(std::move(name)), m_Parent(parent), m_CreationTime(std::move(creationTime)),
+	m_LastEditTime(m_CreationTime) {}
 
 std::string_view ResourceObject::GetName() const noexcept {
 	return m_Name;
@@ -83,7 +84,8 @@ ResourceDirectory& ResourceDirectory::CreateDirectory(std::string name,
 
 	auto directory = std::unique_ptr<ResourceDirectory>(
 		new ResourceDirectory(name, this, std::move(creationTime)));
-	const auto [iterator, isSuccess] = m_Objects.insert(std::make_pair(std::move(name), std::move(directory)));
+	const auto [iterator, isSuccess] = m_Objects.insert(
+		std::make_pair(std::move(name), std::move(directory)));
 	assert(isSuccess);
 
 	return *static_cast<ResourceDirectory*>(iterator->second.get());
@@ -94,7 +96,8 @@ ResourceFile& ResourceDirectory::CreateFile(std::string name,
 
 	auto file = std::unique_ptr<ResourceFile>(
 		new ResourceFile(name, this, std::move(creationTime)));
-	const auto [iterator, isSuccess] = m_Objects.insert(std::make_pair(std::move(name), std::move(file)));
+	const auto [iterator, isSuccess] = m_Objects.insert(
+		std::make_pair(std::move(name), std::move(file)));
 	assert(isSuccess);
 
 	return *static_cast<ResourceFile*>(iterator->second.get());
@@ -175,7 +178,8 @@ namespace {
 			Matrix parameterValue = bin.ReadMatrix();
 			Matrix parameterGradient = bin.ReadMatrix();
 
-			const Parameter parameter = parameterTable.AddParameter(std::move(parameterName), std::move(parameterValue));
+			const Parameter parameter =
+				parameterTable.AddParameter(std::move(parameterName), std::move(parameterValue));
 			parameter.SetGradient(std::move(parameterGradient));
 
 			ReadVariableTable(bin, parameter.GetVariableTable());
@@ -246,7 +250,6 @@ namespace {
 			const std::string layerName(layer.GetName());
 
 			bin.Write(layerName);
-
 			if (layerName == "FCLayer") {
 				const auto& fcLayer = static_cast<const FCLayer&>(layer);
 
@@ -266,7 +269,6 @@ namespace {
 		const std::string optimizerName(optimizer.GetName());
 
 		bin.Write(optimizerName);
-
 		if (optimizerName == "SGDOptimizer") {
 			const auto& sgdOptimizer = static_cast<const SGDOptimizer&>(optimizer);
 
