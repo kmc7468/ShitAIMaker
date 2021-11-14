@@ -6,6 +6,8 @@
 #include <string>
 #include <Windows.h>
 
+#define WM_REFLECT WM_USER + 0x1C00
+
 namespace {
 	HINSTANCE g_Instance;
 
@@ -158,6 +160,12 @@ private:
 protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (message) {
+		case WM_COMMAND:
+			if (lParam != 0)
+				return SendMessage(reinterpret_cast<HWND>(lParam), WM_REFLECT + message, wParam, lParam);
+
+			break;
+
 		case WM_DESTROY:
 			GetEventHandler().OnCreate(*this);
 
@@ -245,5 +253,37 @@ int PALRunEventLoop(Window* mainWindow) {
 	}
 
 	return static_cast<int>(message.wParam);
+}
+
+class Win32Button final : public Win32Control {
+public:
+	Win32Button(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+		: Win32Control(std::move(eventHandler), "Button", WS_CHILD | BS_PUSHBUTTON) {}
+	Win32Button(const Win32Control&) = delete;
+	virtual ~Win32Button() override = default;
+
+public:
+	Win32Button& operator=(const Win32Button&) = delete;
+
+protected:
+	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
+		switch (message) {
+		case WM_REFLECT + WM_COMMAND:
+			switch (HIWORD(wParam)) {
+			case BN_CLICKED:
+				dynamic_cast<ClickableEventHandler&>(GetEventHandler()).OnClick(*this);
+
+				break;
+			}
+
+			return 0;
+		}
+
+		return Win32Control::Callback(message, wParam, lParam);
+	}
+};
+
+std::unique_ptr<Control> Button::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+	return std::make_unique<Win32Button>(std::move(eventHandler));
 }
 #endif

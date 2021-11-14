@@ -32,13 +32,15 @@ Control& Control::GetChild(std::size_t index) noexcept {
 std::size_t Control::GetChildrenCount() const noexcept {
 	return m_Children.size();
 }
-void Control::AddChild(ControlRef&& child) {
+Control& Control::AddChild(ControlRef&& child) {
 	m_Children.push_back(std::move(child));
 
 	Control& childControl = *m_Children.back();
 
 	childControl.m_Parent = this;
 	PALAddChild(*m_Children.back());
+
+	return childControl;
 }
 EventHandler& Control::GetEventHandler() noexcept {
 	return *m_EventHandler;
@@ -137,3 +139,8 @@ int RunEventLoop() {
 int RunEventLoop(Window& mainWindow) {
 	return PALRunEventLoop(&mainWindow);
 }
+
+void ClickableEventHandler::OnClick(Control&) {}
+
+Button::Button(std::unique_ptr<ClickableEventHandler>&& eventHandler)
+	: ControlRef(PALCreateButton(std::move(eventHandler))) {}

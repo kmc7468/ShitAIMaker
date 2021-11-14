@@ -35,7 +35,7 @@ public:
 	const Control& GetChild(std::size_t index) const noexcept;
 	Control& GetChild(std::size_t index) noexcept;
 	std::size_t GetChildrenCount() const noexcept;
-	void AddChild(ControlRef&& child);
+	Control& AddChild(ControlRef&& child);
 	void* GetHandle() noexcept;
 	EventHandler& GetEventHandler() noexcept;
 
@@ -122,3 +122,29 @@ int RunEventLoop();
 int RunEventLoop(Window& mainWindow);
 
 int PALRunEventLoop(Window* mainWindow);
+
+class ClickableEventHandler : public virtual EventHandler {
+public:
+	ClickableEventHandler() noexcept = default;
+	ClickableEventHandler(const ClickableEventHandler&) = delete;
+	virtual ~ClickableEventHandler() override = default;
+
+public:
+	ClickableEventHandler& operator=(const ClickableEventHandler&) = delete;
+
+public:
+	virtual void OnClick(Control& control);
+};
+
+class Button final : public ControlRef {
+public:
+	Button(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	Button(Button&& other) noexcept = default;
+	~Button() = default;
+
+public:
+	Button& operator=(Button&& other) noexcept = default;
+
+private:
+	static std::unique_ptr<Control> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+};
