@@ -140,6 +140,8 @@ class MenuItemRef;
 class Window;
 
 class Menu {
+	friend class Window;
+
 private:
 	Window* m_Parent = nullptr;
 	std::vector<MenuItemRef> m_Items;
@@ -282,7 +284,7 @@ public:
 	bool HasMenu() const noexcept;
 	const Menu& GetMenu() const noexcept;
 	Menu& GetMenu() noexcept;
-	void SetMenu(MenuRef&& menu);
+	Menu& SetMenu(MenuRef&& menu);
 
 protected:
 	virtual void PALSetMenu(Menu& menu) = 0;

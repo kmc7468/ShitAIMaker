@@ -31,12 +31,12 @@ std::size_t Control::GetChildrenCount() const noexcept {
 Control& Control::AddChild(ControlRef&& child) {
 	m_Children.push_back(std::move(child));
 
-	Control& childControl = *m_Children.back();
+	Control& control = *m_Children.back();
 
-	childControl.m_Parent = this;
-	PALAddChild(childControl);
+	control.m_Parent = this;
+	PALAddChild(control);
 
-	return childControl;
+	return control;
 }
 EventHandler& Control::GetEventHandler() noexcept {
 	return *m_EventHandler;
@@ -225,10 +225,13 @@ const Menu& Window::GetMenu() const noexcept {
 Menu& Window::GetMenu() noexcept {
 	return m_Menu->Get();
 }
-void Window::SetMenu(MenuRef&& menu) {
+Menu& Window::SetMenu(MenuRef&& menu) {
 	m_Menu.emplace(std::move(menu));
 
+	m_Menu->Get().m_Parent = this;
 	PALSetMenu(m_Menu->Get());
+
+	return m_Menu->Get();
 }
 
 WindowRef::WindowRef(std::unique_ptr<EventHandler>&& eventHandler)

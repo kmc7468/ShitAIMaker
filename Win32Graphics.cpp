@@ -270,11 +270,27 @@ public:
 
 		if (isModify) {
 			ModifyMenuA(parent, static_cast<UINT>(index), flag | MF_BYPOSITION, itemId, item);
+			DrawMenuBar(GetParentWindow());
 		} else {
 			AppendMenuA(parent, flag, itemId, item);
 
 			m_Index = index;
 		}
+	}
+
+private:
+	HWND GetParentWindow() const noexcept {
+		const MenuItem* menuItem = this;
+
+		while (menuItem->IsSubItem()) {
+			menuItem = &menuItem->GetParentItem();
+		}
+
+		if (!menuItem->HasParent()) return nullptr;
+
+		const Menu& menu = menuItem->GetParentMenu();
+
+		return menu.HasParent() ? dynamic_cast<const Win32Control&>(menu.GetParent()).Handle : nullptr;
 	}
 };
 
