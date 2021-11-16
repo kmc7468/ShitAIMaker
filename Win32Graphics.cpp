@@ -1,9 +1,7 @@
 #ifdef _WIN32
 #include "PALGraphics.hpp"
 
-#include <cassert>
 #include <cstdint>
-#include <string>
 #include <Windows.h>
 
 #define WM_REFLECT WM_USER + 0x1C00
@@ -40,17 +38,17 @@ struct CreateParams {
 class Win32Control : public virtual Control {
 public:
 	HWND Handle = nullptr;
+	CreateParams CreateParams;
 
 private:
-	CreateParams m_CreateParams;
 	WNDPROC m_OldCallback = nullptr;
 
 public:
 	Win32Control(std::string className, DWORD style) noexcept {
 		assert(!className.empty());
 
-		m_CreateParams.ClassName = std::move(className);
-		m_CreateParams.Style = style;
+		CreateParams.ClassName = std::move(className);
+		CreateParams.Style = style;
 	}
 	Win32Control(const Win32Control&) = delete;
 	virtual ~Win32Control() override = 0;
@@ -61,9 +59,9 @@ public:
 protected:
 	virtual void PALAddChild(Control& child) {
 		Win32Control& childControl = dynamic_cast<Win32Control&>(child);
-		assert(childControl.m_CreateParams.Style & WS_CHILD);
+		assert(childControl.CreateParams.Style & WS_CHILD);
 
-		childControl.m_CreateParams.Menu = reinterpret_cast<HMENU>(GetChildrenCount() - 1);
+		childControl.CreateParams.Menu = reinterpret_cast<HMENU>(GetChildrenCount() - 1);
 
 		if (Handle) {
 			childControl.CreateHandle();
@@ -79,13 +77,13 @@ protected:
 			GetWindowRect(Handle, &rect);
 
 			return { static_cast<int>(rect.right - rect.left), static_cast<int>(rect.bottom - rect.top) };
-		} else return m_CreateParams.Size;
+		} else return CreateParams.Size;
 	}
 	virtual void PALSetSize(int newWidth, int newHeight) override {
 		if (Handle) {
 			SetWindowPos(Handle, nullptr, 0, 0, newWidth, newHeight, SWP_NOZORDER | SWP_NOMOVE);
 		} else {
-			m_CreateParams.Size = { newWidth, newHeight };
+			CreateParams.Size = { newWidth, newHeight };
 		}
 	}
 	virtual std::pair<int, int> PALGetClientSize() const override {
@@ -102,31 +100,31 @@ protected:
 			GetWindowRect(Handle, &rect);
 
 			return { static_cast<int>(rect.left), static_cast<int>(rect.top) };
-		} else return m_CreateParams.Location;
+		} else return CreateParams.Location;
 	}
 	virtual void PALSetLocation(int newX, int newY) override {
 		if (Handle) {
 			SetWindowPos(Handle, nullptr, newX, newY, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 		} else {
-			m_CreateParams.Location = { newX, newY };
+			CreateParams.Location = { newX, newY };
 		}
 	}
 	virtual bool PALGetVisibility() const override {
 		if (Handle) return IsWindowVisible(Handle);
-		else return m_CreateParams.Style & WS_VISIBLE;
+		else return CreateParams.Style & WS_VISIBLE;
 	}
 	virtual void PALSetVisibility(bool newVisibility) override {
 		if (Handle) {
 			ShowWindow(Handle, newVisibility ? SW_SHOW : SW_HIDE);
 		} else {
 			if (newVisibility) {
-				m_CreateParams.Style |= WS_VISIBLE;
+				CreateParams.Style |= WS_VISIBLE;
 
-				if (!(m_CreateParams.Style & WS_CHILD)) {
+				if (!(CreateParams.Style & WS_CHILD)) {
 					CreateHandle();
 				}
 			} else {
-				m_CreateParams.Style &= ~WS_VISIBLE;
+				CreateParams.Style &= ~WS_VISIBLE;
 			}
 		}
 	}
@@ -135,10 +133,10 @@ private:
 	void CreateHandle() {
 		const std::size_t childrenCount = GetChildrenCount();
 
-		Handle = CreateWindowA(m_CreateParams.ClassName.data(), m_CreateParams.WindowName.data(),
-			m_CreateParams.Style, m_CreateParams.Location.first, m_CreateParams.Location.second,
-			m_CreateParams.Size.first, m_CreateParams.Size.second, HasParent() ? GetParentHandle() : nullptr,
-			m_CreateParams.Menu, g_Instance, m_CreateParams.Param);
+		Handle = CreateWindowA(CreateParams.ClassName.data(), CreateParams.WindowName.data(),
+			CreateParams.Style, CreateParams.Location.first, CreateParams.Location.second,
+			CreateParams.Size.first, CreateParams.Size.second, HasParent() ? GetParentHandle() : nullptr,
+			CreateParams.Menu, g_Instance, CreateParams.Param);
 		assert(Handle != nullptr);
 
 		SetWindowLongPtr(Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
@@ -192,6 +190,106 @@ Win32Control::~Win32Control() {
 	DestroyWindow(Handle);
 }
 
+class Win32Menu : public Menu {
+public:
+	HMENU Handle = nullptr;
+
+public:
+	Win32Menu() {
+		Handle = CreateMenu();
+		assert(Handle != nullptr);
+	}
+	Win32Menu(const Win32Menu&) = delete;
+	virtual ~Win32Menu() override {
+		DestroyMenu(Handle);
+	}
+
+public:
+	Win32Menu& operator=(const Win32Menu&) = delete;
+
+protected:
+	virtual void PALAddItem(MenuItem& item) override;
+	virtual void* PALGetHandle() noexcept override {
+		return Handle;
+	}
+};
+
+std::unique_ptr<Menu> MenuRef::PALCreateMenu() {
+	return std::make_unique<Win32Menu>();
+}
+
+class Win32MenuItem : public DropDownMenuItem {
+private:
+	static inline UINT_PTR m_IdCount = 0;
+
+public:
+	std::optional<std::string> String;
+	std::optional<HMENU> PopupMenu;
+
+private:
+	std::size_t m_Index = 0;
+	UINT_PTR m_Id = 0;
+
+public:
+	Win32MenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+		: MenuItem(std::move(eventHandler)), String(std::move(string)) {}
+	Win32MenuItem(const Win32MenuItem&) = delete;
+	virtual ~Win32MenuItem() override {
+		if (PopupMenu) {
+			DestroyMenu(*PopupMenu);
+		}
+	}
+
+public:
+	Win32Menu& operator=(const Win32Menu&) = delete;
+
+protected:
+	virtual void* PALGetHandle() noexcept override {
+		return PopupMenu ? *PopupMenu : nullptr;
+	}
+	virtual void PALAddSubItem(MenuItem& subItem) override {
+		if (!PopupMenu) {
+			PopupMenu = CreatePopupMenu();
+			assert(*PopupMenu != nullptr);
+
+			if (HasParent()) {
+				AddItemToParent(static_cast<HMENU>(
+					IsRootItem() ? GetParentMenu().GetHandle() : GetParentItem().GetHandle()), m_Index, true);
+			}
+		}
+
+		dynamic_cast<Win32MenuItem&>(subItem).AddItemToParent(*PopupMenu, GetSubItemsCount() - 1);
+	}
+
+public:
+	void AddItemToParent(HMENU parent, std::size_t index, bool isModify = false) {
+		const UINT flag = (String ? MF_STRING : 0) | (PopupMenu ? MF_POPUP : 0);
+		const UINT_PTR itemId = PopupMenu ?
+			reinterpret_cast<UINT_PTR>(*PopupMenu) : (isModify ? m_Id : (m_Id = m_IdCount++));
+		const LPCSTR item = String ? String->data() : nullptr;
+
+		if (isModify) {
+			ModifyMenuA(parent, static_cast<UINT>(index), flag | MF_BYPOSITION, itemId, item);
+		} else {
+			AppendMenuA(parent, flag, itemId, item);
+
+			m_Index = index;
+		}
+	}
+};
+
+std::unique_ptr<MenuItem> MenuItemRef::PALCreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+	return std::make_unique<Win32MenuItem>(std::move(string), std::move(eventHandler));
+}
+
+std::unique_ptr<DropDownMenuItem> DropDownMenuItemRef::PALCreateDropDownMenuItem(std::string string) {
+	return std::make_unique<Win32MenuItem>(std::move(string), std::make_unique<ClickableEventHandler>());
+}
+
+void Win32Menu::PALAddItem(MenuItem& item) {
+	dynamic_cast<Win32MenuItem&>(item).AddItemToParent(Handle, GetItemsCount() - 1);
+}
+
 namespace {
 	void RegisterWindowClass() {
 		WNDCLASSA wndClass{};
@@ -222,6 +320,17 @@ public:
 	Win32Window& operator=(const Win32Window&) = delete;
 
 protected:
+	virtual void PALSetMenu(Menu& menu) override {
+		const HMENU menuHandle = static_cast<Win32Menu&>(menu).Handle;
+
+		if (Handle) {
+			::SetMenu(Handle, menuHandle);
+		} else {
+			CreateParams.Menu = menuHandle;
+		}
+	}
+
+protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
 		switch (message) {
 		case WM_CLOSE:
@@ -241,13 +350,13 @@ protected:
 	}
 };
 
-std::unique_ptr<Control> WindowRef::PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
+std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
 	return std::make_unique<Win32Window>(std::move(eventHandler));
 }
 
 int PALRunEventLoop(WindowRef* mainWindow) {
 	if (mainWindow) {
-		dynamic_cast<Win32Window&>(mainWindow->GetControl()).IsMainWindow = true;
+		dynamic_cast<Win32Window&>(mainWindow->Get()).IsMainWindow = true;
 	}
 
 	MSG message;
@@ -288,7 +397,7 @@ protected:
 	}
 };
 
-std::unique_ptr<Control> ButtonRef::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<Button> ButtonRef::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Button>(std::move(eventHandler));
 }
 #endif

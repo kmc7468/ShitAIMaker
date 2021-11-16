@@ -1,9 +1,52 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <memory>
+#include <optional>
+#include <string>
+#include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
+
+template<typename T>
+class GraphicsObjectRef {
+	template<typename U>
+	friend class GraphicsObjectRef;
+
+private:
+	std::unique_ptr<T> m_Object;
+
+public:
+	GraphicsObjectRef(std::unique_ptr<T>&& object) noexcept
+		: m_Object(std::move(object)) {
+		assert(m_Object != nullptr);
+	}
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	GraphicsObjectRef(GraphicsObjectRef<U>&& other) noexcept
+		: m_Object(std::move(other.m_Object)) {}
+	~GraphicsObjectRef() = default;
+
+public:
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	GraphicsObjectRef& operator=(GraphicsObjectRef<U>&& other) noexcept {
+		m_Object = std::move(other.m_Object);
+
+		return *this;
+	}
+	T* operator->() const noexcept {
+		return m_Object.get();
+	}
+	T& operator*() const noexcept {
+		return *m_Object.get();
+	}
+
+public:
+	T& Get() const noexcept {
+		return *m_Object.get();
+	}
+};
 
 void InitializeGraphics();
 void FinalizeGraphics() noexcept;
@@ -21,7 +64,7 @@ private:
 	std::unique_ptr<EventHandler> m_EventHandler;
 
 public:
-	Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept;
+	explicit Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept;
 	Control(const Control&) = delete;
 	virtual ~Control() = default;
 
@@ -87,25 +130,146 @@ public:
 	virtual void OnDestroy(Control& control);
 };
 
-class ControlRef {
+class ControlRef final : public GraphicsObjectRef<Control> {
+public:
+	using GraphicsObjectRef::GraphicsObjectRef;
+};
+
+class MenuItem;
+class MenuItemRef;
+class Window;
+
+class Menu {
 private:
-	std::unique_ptr<Control> m_Control;
+	Window* m_Parent = nullptr;
+	std::vector<MenuItemRef> m_Items;
 
 public:
-	ControlRef(std::unique_ptr<Control>&& control) noexcept;
-	ControlRef(ControlRef&& other) noexcept = default;
-	~ControlRef() = default;
+	Menu() noexcept = default;
+	Menu(const Menu&) = delete;
+	virtual ~Menu() = default;
 
 public:
-	ControlRef& operator=(ControlRef&& other) noexcept = default;
-	Control* operator->() const noexcept;
-	Control& operator*() const noexcept;
+	Menu& operator=(const Menu&) = delete;
 
 public:
-	Control& GetControl() const noexcept;
+	bool HasParent() const noexcept;
+	const Window& GetParent() const noexcept;
+	Window& GetParent() noexcept;
+	const MenuItem& GetItem(std::size_t index) const noexcept;
+	MenuItem& GetItem(std::size_t index) noexcept;
+	std::size_t GetItemsCount() const noexcept;
+	MenuItem& AddItem(MenuItemRef&& item);
+	void* GetHandle() noexcept;
+
+protected:
+	virtual void PALAddItem(MenuItem& item) = 0;
+	virtual void* PALGetHandle() noexcept = 0;
+};
+
+class MenuRef final : public GraphicsObjectRef<Menu> {
+public:
+	using GraphicsObjectRef::GraphicsObjectRef;
+
+	MenuRef();
+
+private:
+	static std::unique_ptr<Menu> PALCreateMenu();
+};
+
+class ClickableEventHandler : public virtual EventHandler {
+public:
+	ClickableEventHandler() noexcept = default;
+	ClickableEventHandler(const ClickableEventHandler&) = delete;
+	virtual ~ClickableEventHandler() override = default;
+
+public:
+	ClickableEventHandler& operator=(const ClickableEventHandler&) = delete;
+
+public:
+	virtual void OnClick(Control& control);
+};
+
+class DropDownMenuItem;
+
+class MenuItem {
+	friend class DropDownMenuItem;
+	friend class Menu;
+
+private:
+	std::variant<std::monostate, Menu*, MenuItem*> m_Parent;
+	std::unique_ptr<ClickableEventHandler> m_EventHandler;
+
+public:
+	explicit MenuItem(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept;
+	MenuItem(const MenuItem&) = delete;
+	virtual ~MenuItem() = default;
+
+public:
+	MenuItem& operator=(const MenuItem&) = delete;
+
+public:
+	bool HasParent() const noexcept;
+	bool IsRootItem() const noexcept;
+	bool IsSubItem() const noexcept;
+	const Menu& GetParentMenu() const noexcept;
+	Menu& GetParentMenu() noexcept;
+	const MenuItem& GetParentItem() const noexcept;
+	MenuItem& GetParentItem() noexcept;
+	void* GetHandle() noexcept;
+	ClickableEventHandler& GetEventHandler() noexcept;
+
+protected:
+	virtual void* PALGetHandle() noexcept = 0;
+};
+
+class MenuItemRef final : public GraphicsObjectRef<MenuItem> {
+public:
+	using GraphicsObjectRef::GraphicsObjectRef;
+
+	explicit MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
+
+private:
+	static std::unique_ptr<MenuItem> CreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	static std::unique_ptr<MenuItem> PALCreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
+};
+
+class DropDownMenuItem : public virtual MenuItem {
+private:
+	std::vector<MenuItemRef> m_SubItems;
+
+public:
+	DropDownMenuItem() noexcept;
+	DropDownMenuItem(const DropDownMenuItem&) = delete;
+	virtual ~DropDownMenuItem() override = default;
+
+public:
+	MenuItem& operator=(const MenuItem&) = delete;
+
+public:
+	const MenuItem& GetSubItem(std::size_t index) const noexcept;
+	MenuItem& GetSubItem(std::size_t index) noexcept;
+	std::size_t GetSubItemsCount() const noexcept;
+	MenuItem& AddSubItem(MenuItemRef&& subItem);
+
+protected:
+	virtual void PALAddSubItem(MenuItem& subItem) = 0;
+};
+
+class DropDownMenuItemRef final : public GraphicsObjectRef<DropDownMenuItem> {
+public:
+	using GraphicsObjectRef::GraphicsObjectRef;
+
+	explicit DropDownMenuItemRef(std::string string);
+
+private:
+	static std::unique_ptr<DropDownMenuItem> PALCreateDropDownMenuItem(std::string string);
 };
 
 class Window : public virtual Control {
+private:
+	std::optional<MenuRef> m_Menu;
+
 public:
 	Window() noexcept;
 	Window(const Window&) = delete;
@@ -113,19 +277,26 @@ public:
 
 public:
 	Window& operator=(const Window&) = delete;
+
+public:
+	bool HasMenu() const noexcept;
+	const Menu& GetMenu() const noexcept;
+	Menu& GetMenu() noexcept;
+	void SetMenu(MenuRef&& menu);
+
+protected:
+	virtual void PALSetMenu(Menu& menu) = 0;
 };
 
-class WindowRef final : public ControlRef {
+class WindowRef final : public GraphicsObjectRef<Window> {
 public:
-	WindowRef(std::unique_ptr<EventHandler>&& eventHandler);
-	WindowRef(WindowRef&& other) noexcept = default;
-	~WindowRef() = default;
+	using GraphicsObjectRef::GraphicsObjectRef;
 
-public:
-	WindowRef& operator=(WindowRef&& other) noexcept = default;
+	explicit WindowRef(std::unique_ptr<EventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<Control> PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
+	static std::unique_ptr<Window> CreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
+	static std::unique_ptr<Window> PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
 };
 
 int RunEventLoop();
@@ -143,28 +314,11 @@ public:
 	Button& operator=(const Button&) = delete;
 };
 
-class ClickableEventHandler : public virtual EventHandler {
+class ButtonRef final : public GraphicsObjectRef<Button> {
 public:
-	ClickableEventHandler() noexcept = default;
-	ClickableEventHandler(const ClickableEventHandler&) = delete;
-	virtual ~ClickableEventHandler() override = default;
-
-public:
-	ClickableEventHandler& operator=(const ClickableEventHandler&) = delete;
-
-public:
-	virtual void OnClick(Control& control);
-};
-
-class ButtonRef final : public ControlRef {
-public:
-	ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler);
-	ButtonRef(ButtonRef&& other) noexcept = default;
-	~ButtonRef() = default;
-
-public:
-	ButtonRef& operator=(ButtonRef&& other) noexcept = default;
+	explicit ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<Control> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	static std::unique_ptr<Button> CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	static std::unique_ptr<Button> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
 };

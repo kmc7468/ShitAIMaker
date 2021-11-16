@@ -1,7 +1,5 @@
 #include "PALGraphics.hpp"
 
-#include <cassert>
-
 void InitializeGraphics() {
 	PALInitializeGraphics();
 }
@@ -10,9 +8,7 @@ void FinalizeGraphics() noexcept {
 }
 
 Control::Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept
-	: m_EventHandler(std::move(eventHandler)) {
-	assert(m_EventHandler != nullptr);
-}
+	: m_EventHandler(std::move(eventHandler)) {}
 
 bool Control::HasParent() const noexcept {
 	return m_Parent != nullptr;
@@ -38,7 +34,7 @@ Control& Control::AddChild(ControlRef&& child) {
 	Control& childControl = *m_Children.back();
 
 	childControl.m_Parent = this;
-	PALAddChild(*m_Children.back());
+	PALAddChild(childControl);
 
 	return childControl;
 }
@@ -114,26 +110,135 @@ void Control::Hide() {
 void EventHandler::OnCreate(Control&) {}
 void EventHandler::OnDestroy(Control&) {}
 
-ControlRef::ControlRef(std::unique_ptr<Control>&& control) noexcept
-	: m_Control(std::move(control)) {
-	assert(m_Control != nullptr);
+bool Menu::HasParent() const noexcept {
+	return m_Parent != nullptr;
+}
+const Window& Menu::GetParent() const noexcept {
+	return *m_Parent;
+}
+Window& Menu::GetParent() noexcept {
+	return *m_Parent;
+}
+const MenuItem& Menu::GetItem(std::size_t index) const noexcept {
+	return m_Items[index].Get();
+}
+MenuItem& Menu::GetItem(std::size_t index) noexcept {
+	return m_Items[index].Get();
+}
+std::size_t Menu::GetItemsCount() const noexcept {
+	return m_Items.size();
+}
+MenuItem& Menu::AddItem(MenuItemRef&& item) {
+	m_Items.push_back(std::move(item));
+
+	MenuItem& menuItem = *m_Items.back();
+
+	menuItem.m_Parent = this;
+	PALAddItem(menuItem);
+
+	return menuItem;
+}
+void* Menu::GetHandle() noexcept {
+	return PALGetHandle();
 }
 
-Control* ControlRef::operator->() const noexcept {
-	return m_Control.get();
-}
-Control& ControlRef::operator*() const noexcept {
-	return *m_Control.get();
+MenuRef::MenuRef()
+	: GraphicsObjectRef(PALCreateMenu()) {}
+
+void ClickableEventHandler::OnClick(Control&) {}
+
+MenuItem::MenuItem(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+	: m_EventHandler(std::move(eventHandler)) {
+	assert(m_EventHandler != nullptr);
 }
 
-Control& ControlRef::GetControl() const noexcept {
-	return *m_Control.get();
+bool MenuItem::HasParent() const noexcept {
+	return m_Parent.index() != 0;
 }
+bool MenuItem::IsRootItem() const noexcept {
+	return m_Parent.index() == 1;
+}
+bool MenuItem::IsSubItem() const noexcept {
+	return m_Parent.index() == 2;
+}
+const Menu& MenuItem::GetParentMenu() const noexcept {
+	return *std::get<1>(m_Parent);
+}
+Menu& MenuItem::GetParentMenu() noexcept {
+	return *std::get<1>(m_Parent);
+}
+const MenuItem& MenuItem::GetParentItem() const noexcept {
+	return *std::get<2>(m_Parent);
+}
+MenuItem& MenuItem::GetParentItem() noexcept {
+	return *std::get<2>(m_Parent);
+}
+void* MenuItem::GetHandle() noexcept {
+	return PALGetHandle();
+}
+ClickableEventHandler& MenuItem::GetEventHandler() noexcept {
+	return *m_EventHandler.get();
+}
+
+MenuItemRef::MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler)
+	: GraphicsObjectRef(CreateMenuItem(std::move(string), std::move(eventHandler))) {}
+
+std::unique_ptr<MenuItem> MenuItemRef::CreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+	assert(eventHandler != nullptr);
+
+	return PALCreateMenuItem(std::move(string), std::move(eventHandler));
+}
+
+DropDownMenuItem::DropDownMenuItem() noexcept {}
+
+const MenuItem& DropDownMenuItem::GetSubItem(std::size_t index) const noexcept {
+	return m_SubItems[index].Get();
+}
+MenuItem& DropDownMenuItem::GetSubItem(std::size_t index) noexcept {
+	return m_SubItems[index].Get();
+}
+std::size_t DropDownMenuItem::GetSubItemsCount() const noexcept {
+	return m_SubItems.size();
+}
+MenuItem& DropDownMenuItem::AddSubItem(MenuItemRef&& subItem) {
+	m_SubItems.push_back(std::move(subItem));
+
+	MenuItem& menuItem = *m_SubItems.back();
+
+	menuItem.m_Parent = this;
+	PALAddSubItem(menuItem);
+
+	return menuItem;
+}
+
+DropDownMenuItemRef::DropDownMenuItemRef(std::string string)
+	: GraphicsObjectRef(PALCreateDropDownMenuItem(std::move(string))) {}
 
 Window::Window() noexcept {}
 
+bool Window::HasMenu() const noexcept {
+	return m_Menu.has_value();
+}
+const Menu& Window::GetMenu() const noexcept {
+	return m_Menu->Get();
+}
+Menu& Window::GetMenu() noexcept {
+	return m_Menu->Get();
+}
+void Window::SetMenu(MenuRef&& menu) {
+	m_Menu.emplace(std::move(menu));
+
+	PALSetMenu(m_Menu->Get());
+}
+
 WindowRef::WindowRef(std::unique_ptr<EventHandler>&& eventHandler)
-	: ControlRef(PALCreateWindow(std::move(eventHandler))) {}
+	: GraphicsObjectRef(PALCreateWindow(std::move(eventHandler))) {}
+
+std::unique_ptr<Window> WindowRef::CreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
+	assert(eventHandler != nullptr);
+
+	return PALCreateWindow(std::move(eventHandler));
+}
 
 int RunEventLoop() {
 	return PALRunEventLoop(nullptr);
@@ -144,7 +249,11 @@ int RunEventLoop(WindowRef& mainWindow) {
 
 Button::Button() noexcept {}
 
-void ClickableEventHandler::OnClick(Control&) {}
-
 ButtonRef::ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler)
-	: ControlRef(PALCreateButton(std::move(eventHandler))) {}
+	: GraphicsObjectRef(PALCreateButton(std::move(eventHandler))) {}
+
+std::unique_ptr<Button> ButtonRef::CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+	assert(eventHandler != nullptr);
+
+	return PALCreateButton(std::move(eventHandler));
+}
