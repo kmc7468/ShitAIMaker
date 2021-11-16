@@ -1,6 +1,7 @@
 #ifdef _WIN32
 #include "PALGraphics.hpp"
 
+#include <cassert>
 #include <cstdint>
 #include <Windows.h>
 
@@ -371,8 +372,8 @@ std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<EventHandler>
 }
 
 int PALRunEventLoop(WindowRef* mainWindow) {
-	if (mainWindow) {
-		dynamic_cast<Win32Window&>(mainWindow->Get()).IsMainWindow = true;
+	if (mainWindow && !mainWindow->IsEmpty()) {
+		dynamic_cast<Win32Window&>(**mainWindow).IsMainWindow = true;
 	}
 
 	MSG message;

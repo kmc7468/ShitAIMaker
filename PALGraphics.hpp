@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -20,9 +19,7 @@ private:
 
 public:
 	GraphicsObjectRef(std::unique_ptr<T>&& object) noexcept
-		: m_Object(std::move(object)) {
-		assert(m_Object != nullptr);
-	}
+		: m_Object(std::move(object)) {}
 	template<typename U> requires(std::is_base_of_v<T, U>)
 	GraphicsObjectRef(GraphicsObjectRef<U>&& other) noexcept
 		: m_Object(std::move(other.m_Object)) {}
@@ -35,14 +32,23 @@ public:
 
 		return *this;
 	}
+	bool operator==(std::nullptr_t) const noexcept {
+		return m_Object == nullptr;
+	}
 	T* operator->() const noexcept {
 		return m_Object.get();
 	}
 	T& operator*() const noexcept {
 		return *m_Object.get();
 	}
+	explicit operator bool() const noexcept {
+		return m_Object != nullptr;
+	}
 
 public:
+	bool IsEmpty() const noexcept {
+		return m_Object == nullptr;
+	}
 	T& Get() const noexcept {
 		return *m_Object.get();
 	}

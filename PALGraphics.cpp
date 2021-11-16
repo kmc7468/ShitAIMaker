@@ -1,5 +1,7 @@
 #include "PALGraphics.hpp"
 
+#include <cassert>
+
 void InitializeGraphics() {
 	PALInitializeGraphics();
 }
@@ -29,6 +31,8 @@ std::size_t Control::GetChildrenCount() const noexcept {
 	return m_Children.size();
 }
 Control& Control::AddChild(ControlRef&& child) {
+	assert(!child.IsEmpty());
+
 	m_Children.push_back(std::move(child));
 
 	Control& control = *m_Children.back();
@@ -129,6 +133,8 @@ std::size_t Menu::GetItemsCount() const noexcept {
 	return m_Items.size();
 }
 MenuItem& Menu::AddItem(MenuItemRef&& item) {
+	assert(!item.IsEmpty());
+
 	m_Items.push_back(std::move(item));
 
 	MenuItem& menuItem = *m_Items.back();
@@ -201,6 +207,8 @@ std::size_t DropDownMenuItem::GetSubItemsCount() const noexcept {
 	return m_SubItems.size();
 }
 MenuItem& DropDownMenuItem::AddSubItem(MenuItemRef&& subItem) {
+	assert(!subItem.IsEmpty());
+
 	m_SubItems.push_back(std::move(subItem));
 
 	MenuItem& menuItem = *m_SubItems.back();
@@ -226,12 +234,14 @@ Menu& Window::GetMenu() noexcept {
 	return m_Menu->Get();
 }
 Menu& Window::SetMenu(MenuRef&& menu) {
-	m_Menu.emplace(std::move(menu));
+	assert(!menu.IsEmpty());
 
-	m_Menu->Get().m_Parent = this;
-	PALSetMenu(m_Menu->Get());
+	Menu& movedMenu = m_Menu.emplace(std::move(menu)).Get();
 
-	return m_Menu->Get();
+	movedMenu.m_Parent = this;
+	PALSetMenu(movedMenu);
+
+	return movedMenu;
 }
 
 WindowRef::WindowRef(std::unique_ptr<EventHandler>&& eventHandler)
@@ -247,6 +257,8 @@ int RunEventLoop() {
 	return PALRunEventLoop(nullptr);
 }
 int RunEventLoop(WindowRef& mainWindow) {
+	assert(!mainWindow.IsEmpty());
+
 	return PALRunEventLoop(&mainWindow);
 }
 
