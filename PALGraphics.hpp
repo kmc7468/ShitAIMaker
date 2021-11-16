@@ -105,23 +105,43 @@ public:
 	Control& GetControl() const noexcept;
 };
 
-class Window final : public ControlRef {
+class Window : public virtual Control {
 public:
-	Window(std::unique_ptr<EventHandler>&& eventHandler);
-	Window(Window&& other) noexcept = default;
-	~Window() = default;
+	Window() noexcept;
+	Window(const Window&) = delete;
+	virtual ~Window() override = default;
 
 public:
-	Window& operator=(Window&& other) noexcept = default;
+	Window& operator=(const Window&) = delete;
+};
+
+class WindowRef final : public ControlRef {
+public:
+	WindowRef(std::unique_ptr<EventHandler>&& eventHandler);
+	WindowRef(WindowRef&& other) noexcept = default;
+	~WindowRef() = default;
+
+public:
+	WindowRef& operator=(WindowRef&& other) noexcept = default;
 
 private:
 	static std::unique_ptr<Control> PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
 };
 
 int RunEventLoop();
-int RunEventLoop(Window& mainWindow);
+int RunEventLoop(WindowRef& mainWindow);
 
-int PALRunEventLoop(Window* mainWindow);
+int PALRunEventLoop(WindowRef* mainWindow);
+
+class Button : public virtual Control {
+public:
+	Button() noexcept;
+	Button(const Button&) = delete;
+	virtual ~Button() override = default;
+
+public:
+	Button& operator=(const Button&) = delete;
+};
 
 class ClickableEventHandler : public virtual EventHandler {
 public:
@@ -136,14 +156,14 @@ public:
 	virtual void OnClick(Control& control);
 };
 
-class Button final : public ControlRef {
+class ButtonRef final : public ControlRef {
 public:
-	Button(std::unique_ptr<ClickableEventHandler>&& eventHandler);
-	Button(Button&& other) noexcept = default;
-	~Button() = default;
+	ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	ButtonRef(ButtonRef&& other) noexcept = default;
+	~ButtonRef() = default;
 
 public:
-	Button& operator=(Button&& other) noexcept = default;
+	ButtonRef& operator=(ButtonRef&& other) noexcept = default;
 
 private:
 	static std::unique_ptr<Control> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);

@@ -8,6 +8,10 @@
 
 #define WM_REFLECT WM_USER + 0x1C00
 
+#ifdef _MSC_VER
+#	pragma warning(disable: 4250)
+#endif
+
 namespace {
 	HINSTANCE g_Instance;
 
@@ -33,7 +37,7 @@ struct CreateParams {
 	void* Param = nullptr;
 };
 
-class Win32Control : public Control {
+class Win32Control : public virtual Control {
 public:
 	HWND Handle = nullptr;
 
@@ -42,24 +46,21 @@ private:
 	WNDPROC m_OldCallback = nullptr;
 
 public:
-	Win32Control(std::unique_ptr<EventHandler>&& eventHandler, std::string className, DWORD style) noexcept
-		: Control(std::move(eventHandler)) {
+	Win32Control(std::string className, DWORD style) noexcept {
 		assert(!className.empty());
 
 		m_CreateParams.ClassName = std::move(className);
 		m_CreateParams.Style = style;
 	}
 	Win32Control(const Win32Control&) = delete;
-	virtual ~Win32Control() override {
-		DestroyWindow(Handle);
-	}
+	virtual ~Win32Control() override = 0;
 
 public:
 	Win32Control& operator=(const Win32Control&) = delete;
 
 protected:
 	virtual void PALAddChild(Control& child) {
-		Win32Control& childControl = static_cast<Win32Control&>(child);
+		Win32Control& childControl = dynamic_cast<Win32Control&>(child);
 		assert(childControl.m_CreateParams.Style & WS_CHILD);
 
 		childControl.m_CreateParams.Menu = reinterpret_cast<HMENU>(GetChildrenCount() - 1);
@@ -145,13 +146,13 @@ private:
 			SetWindowLongPtr(Handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc)));
 
 		for (std::size_t i = 0; i < childrenCount; ++i) {
-			static_cast<Win32Control&>(GetChild(i)).CreateHandle();
+			dynamic_cast<Win32Control&>(GetChild(i)).CreateHandle();
 		}
 
 		GetEventHandler().OnCreate(*this);
 	}
 	HWND GetParentHandle() {
-		return static_cast<Win32Control&>(GetParent()).Handle;
+		return dynamic_cast<Win32Control&>(GetParent()).Handle;
 	}
 	static LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
 		return reinterpret_cast<Win32Control*>(GetWindowLongPtr(handle, GWLP_USERDATA))->Callback(message, wParam, lParam);
@@ -187,6 +188,10 @@ protected:
 	}
 };
 
+Win32Control::~Win32Control() {
+	DestroyWindow(Handle);
+}
+
 namespace {
 	void RegisterWindowClass() {
 		WNDCLASSA wndClass{};
@@ -203,13 +208,13 @@ namespace {
 	}
 }
 
-class Win32Window final : public Win32Control {
+class Win32Window final : public Window, public Win32Control {
 public:
 	bool IsMainWindow = false;
 
 public:
 	Win32Window(std::unique_ptr<EventHandler>&& eventHandler) noexcept
-		: Win32Control(std::move(eventHandler), "Window", WS_OVERLAPPEDWINDOW) {}
+		: Control(std::move(eventHandler)), Win32Control("Window", WS_OVERLAPPEDWINDOW) {}
 	Win32Window(const Win32Control&) = delete;
 	virtual ~Win32Window() override = default;
 
@@ -236,13 +241,13 @@ protected:
 	}
 };
 
-std::unique_ptr<Control> Window::PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
+std::unique_ptr<Control> WindowRef::PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
 	return std::make_unique<Win32Window>(std::move(eventHandler));
 }
 
-int PALRunEventLoop(Window* mainWindow) {
+int PALRunEventLoop(WindowRef* mainWindow) {
 	if (mainWindow) {
-		static_cast<Win32Window&>(mainWindow->GetControl()).IsMainWindow = true;
+		dynamic_cast<Win32Window&>(mainWindow->GetControl()).IsMainWindow = true;
 	}
 
 	MSG message;
@@ -255,10 +260,10 @@ int PALRunEventLoop(Window* mainWindow) {
 	return static_cast<int>(message.wParam);
 }
 
-class Win32Button final : public Win32Control {
+class Win32Button final : public Button, public Win32Control {
 public:
 	Win32Button(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
-		: Win32Control(std::move(eventHandler), "Button", WS_CHILD | BS_PUSHBUTTON) {}
+		: Control(std::move(eventHandler)), Win32Control("Button", WS_CHILD | BS_PUSHBUTTON) {}
 	Win32Button(const Win32Control&) = delete;
 	virtual ~Win32Button() override = default;
 
@@ -283,7 +288,7 @@ protected:
 	}
 };
 
-std::unique_ptr<Control> Button::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<Control> ButtonRef::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Button>(std::move(eventHandler));
 }
 #endif

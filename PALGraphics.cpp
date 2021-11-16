@@ -130,17 +130,21 @@ Control& ControlRef::GetControl() const noexcept {
 	return *m_Control.get();
 }
 
-Window::Window(std::unique_ptr<EventHandler>&& eventHandler)
+Window::Window() noexcept {}
+
+WindowRef::WindowRef(std::unique_ptr<EventHandler>&& eventHandler)
 	: ControlRef(PALCreateWindow(std::move(eventHandler))) {}
 
 int RunEventLoop() {
 	return PALRunEventLoop(nullptr);
 }
-int RunEventLoop(Window& mainWindow) {
+int RunEventLoop(WindowRef& mainWindow) {
 	return PALRunEventLoop(&mainWindow);
 }
 
+Button::Button() noexcept {}
+
 void ClickableEventHandler::OnClick(Control&) {}
 
-Button::Button(std::unique_ptr<ClickableEventHandler>&& eventHandler)
+ButtonRef::ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler)
 	: ControlRef(PALCreateButton(std::move(eventHandler))) {}
