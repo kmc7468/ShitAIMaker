@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -10,24 +11,78 @@
 #include <vector>
 
 template<typename T>
-class GraphicsObjectRef {
+class UniqueRef {
 	template<typename U>
-	friend class GraphicsObjectRef;
+	friend class UniqueRef;
 
 private:
 	std::unique_ptr<T> m_Object;
 
 public:
-	GraphicsObjectRef(std::unique_ptr<T>&& object) noexcept
+	UniqueRef(std::unique_ptr<T>&& object) noexcept
 		: m_Object(std::move(object)) {}
 	template<typename U> requires(std::is_base_of_v<T, U>)
-	GraphicsObjectRef(GraphicsObjectRef<U>&& other) noexcept
+	UniqueRef(UniqueRef<U>&& other) noexcept
 		: m_Object(std::move(other.m_Object)) {}
-	~GraphicsObjectRef() = default;
+	~UniqueRef() = default;
 
 public:
 	template<typename U> requires(std::is_base_of_v<T, U>)
-	GraphicsObjectRef& operator=(GraphicsObjectRef<U>&& other) noexcept {
+	UniqueRef& operator=(UniqueRef<U>&& other) noexcept {
+		m_Object = std::move(other.m_Object);
+
+		return *this;
+	}
+	bool operator==(std::nullptr_t) const noexcept {
+		return m_Object == nullptr;
+	}
+	T* operator->() const noexcept {
+		return m_Object.get();
+	}
+	T& operator*() const noexcept {
+		return *m_Object.get();
+	}
+	explicit operator bool() const noexcept {
+		return m_Object != nullptr;
+	}
+
+public:
+	bool IsEmpty() const noexcept {
+		return m_Object == nullptr;
+	}
+	T& Get() const noexcept {
+		return *m_Object.get();
+	}
+};
+
+template<typename T>
+class SharedRef {
+	template<typename U>
+	friend class SharedRef;
+
+private:
+	std::shared_ptr<T> m_Object;
+
+public:
+	SharedRef(std::shared_ptr<T> object) noexcept
+		: m_Object(std::move(object)) {}
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	SharedRef(const SharedRef<U>& other) noexcept
+		: m_Object(other.m_Object) {}
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	SharedRef(SharedRef<U>&& other) noexcept
+		: m_Object(std::move(other.m_Object)) {}
+	~SharedRef() = default;
+
+public:
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	SharedRef& operator=(const SharedRef<U>& other) noexcept {
+		m_Object = other.m_Object;
+
+		return *this;
+	}
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	SharedRef& operator=(SharedRef<U>&& other) noexcept {
 		m_Object = std::move(other.m_Object);
 
 		return *this;
@@ -136,9 +191,9 @@ public:
 	virtual void OnDestroy(Control& control);
 };
 
-class ControlRef final : public GraphicsObjectRef<Control> {
+class ControlRef final : public UniqueRef<Control> {
 public:
-	using GraphicsObjectRef::GraphicsObjectRef;
+	using UniqueRef::UniqueRef;
 };
 
 class MenuItem;
@@ -175,9 +230,9 @@ protected:
 	virtual void* PALGetHandle() noexcept = 0;
 };
 
-class MenuRef final : public GraphicsObjectRef<Menu> {
+class MenuRef final : public UniqueRef<Menu> {
 public:
-	using GraphicsObjectRef::GraphicsObjectRef;
+	using UniqueRef::UniqueRef;
 
 	MenuRef();
 
@@ -231,9 +286,9 @@ protected:
 	virtual void* PALGetHandle() noexcept = 0;
 };
 
-class MenuItemRef final : public GraphicsObjectRef<MenuItem> {
+class MenuItemRef final : public UniqueRef<MenuItem> {
 public:
-	using GraphicsObjectRef::GraphicsObjectRef;
+	using UniqueRef::UniqueRef;
 
 	explicit MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
 
@@ -264,14 +319,29 @@ protected:
 	virtual void PALAddSubItem(MenuItem& subItem) = 0;
 };
 
-class DropDownMenuItemRef final : public GraphicsObjectRef<DropDownMenuItem> {
+class DropDownMenuItemRef final : public UniqueRef<DropDownMenuItem> {
 public:
-	using GraphicsObjectRef::GraphicsObjectRef;
+	using UniqueRef::UniqueRef;
 
 	explicit DropDownMenuItemRef(std::string string);
 
 private:
 	static std::unique_ptr<DropDownMenuItem> PALCreateDropDownMenuItem(std::string string);
+};
+
+class Graphics;
+
+class PaintableEventHandler : public virtual EventHandler {
+public:
+	PaintableEventHandler() noexcept = default;
+	PaintableEventHandler(const ClickableEventHandler&) = delete;
+	virtual ~PaintableEventHandler() override = default;
+
+public:
+	PaintableEventHandler& operator=(const PaintableEventHandler&) = delete;
+
+public:
+	virtual void OnPaint(Control& control, Graphics& graphics);
 };
 
 class Window : public virtual Control {
@@ -296,15 +366,15 @@ protected:
 	virtual void PALSetMenu(Menu& menu) = 0;
 };
 
-class WindowRef final : public GraphicsObjectRef<Window> {
+class WindowRef final : public UniqueRef<Window> {
 public:
-	using GraphicsObjectRef::GraphicsObjectRef;
+	using UniqueRef::UniqueRef;
 
-	explicit WindowRef(std::unique_ptr<EventHandler>&& eventHandler);
+	explicit WindowRef(std::unique_ptr<PaintableEventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<Window> CreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
-	static std::unique_ptr<Window> PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler);
+	static std::unique_ptr<Window> CreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler);
+	static std::unique_ptr<Window> PALCreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler);
 };
 
 int RunEventLoop();
@@ -322,11 +392,211 @@ public:
 	Button& operator=(const Button&) = delete;
 };
 
-class ButtonRef final : public GraphicsObjectRef<Button> {
+class ButtonRef final : public UniqueRef<Button> {
 public:
+	using UniqueRef::UniqueRef;
+
 	explicit ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler);
 
 private:
 	static std::unique_ptr<Button> CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
 	static std::unique_ptr<Button> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+};
+
+class Color final {
+public:
+	static const Color Black;
+	static const Color Red;
+	static const Color Green;
+	static const Color Blue;
+	static const Color Yellow;
+	static const Color Cyan;
+	static const Color Magenta;
+	static const Color White;
+
+public:
+	std::uint8_t R = 0, G = 0, B = 0, A = 0;
+
+public:
+	Color() noexcept = default;
+	Color(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a = 255) noexcept;
+	Color(const Color& other) noexcept = default;
+	~Color() = default;
+
+public:
+	Color& operator=(const Color& other) noexcept = default;
+};
+
+class Pen {
+private:
+	float m_Width;
+
+public:
+	explicit Pen(float width) noexcept;
+	Pen(const Pen&) = delete;
+	virtual ~Pen() = default;
+
+public:
+	Pen& operator=(const Pen&) = delete;
+
+public:
+	float GetWidth() const noexcept;
+};
+
+class PenRef final : public SharedRef<Pen> {
+public:
+	using SharedRef::SharedRef;
+};
+
+class SolidPen : public virtual Pen {
+private:
+	Color m_Color;
+
+public:
+	SolidPen(Color color) noexcept;
+	SolidPen(const SolidPen&) = delete;
+	virtual ~SolidPen() override = 0;
+
+public:
+	SolidPen& operator=(const SolidPen&) = delete;
+
+public:
+	Color GetColor() const noexcept;
+};
+
+class SolidPenRef final : public SharedRef<SolidPen> {
+public:
+	using SharedRef::SharedRef;
+
+	SolidPenRef(Color color, float width);
+
+private:
+	static std::shared_ptr<SolidPen> PALCreateSolidPen(Color color, float width);
+};
+
+class Brush {
+public:
+	Brush() noexcept = default;
+	Brush(const Brush&) = delete;
+	virtual ~Brush() = default;
+
+public:
+	Brush& operator=(const Brush&) = delete;
+};
+
+class BrushRef final : public SharedRef<Brush> {
+public:
+	using SharedRef::SharedRef;
+};
+
+class SolidBrush : public virtual Brush {
+private:
+	Color m_Color;
+
+public:
+	SolidBrush(Color color) noexcept;
+	SolidBrush(const SolidBrush&) = delete;
+	virtual ~SolidBrush() override = default;
+
+public:
+	SolidBrush& operator=(const SolidBrush&) = delete;
+
+public:
+	Color GetColor() const noexcept;
+};
+
+class SolidBrushRef final : public SharedRef<SolidBrush> {
+public:
+	using SharedRef::SharedRef;
+
+	explicit SolidBrushRef(Color color);
+
+private:
+	static std::shared_ptr<SolidBrush> PALCreateSolidBrush(Color color);
+};
+
+class Graphics;
+
+class RenderingContext {
+private:
+	Graphics* m_Graphics = nullptr;
+
+public:
+	explicit RenderingContext(Graphics& graphics) noexcept;
+	RenderingContext(const RenderingContext&) = delete;
+	virtual ~RenderingContext() = default;
+
+public:
+	RenderingContext& operator=(const RenderingContext&) = delete;
+
+public:
+	const Graphics& GetGraphics() const noexcept;
+	Graphics& GetGraphics() noexcept;
+};
+
+class RenderingContext2D : public RenderingContext {
+private:
+	PenRef m_Pen;
+	BrushRef m_Brush;
+
+public:
+	explicit RenderingContext2D(Graphics& graphics);
+	RenderingContext2D(const RenderingContext2D&) = delete;
+	virtual ~RenderingContext2D() override = default;
+
+public:
+	RenderingContext2D& operator=(const RenderingContext2D&) = delete;
+
+public:
+	const Pen& GetPen() const noexcept;
+	PenRef SetPen(PenRef newPen);
+	const Brush& GetBrush() const noexcept;
+	BrushRef SetBrush(BrushRef newBrush);
+
+	void DrawRectangle(int x, int y, int width, int height);
+	void DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
+
+	void FillRectangle(int x, int y, int width, int height);
+	void FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
+
+protected:
+	virtual void PALSetPen(Pen& newPen) = 0;
+	virtual void PALSetBrush(Brush& newBrush) = 0;
+
+	virtual void PALDrawRectangle(int x, int y, int width, int height) = 0;
+
+	virtual void PALFillRectangle(int x, int y, int width, int height) = 0;
+};
+
+class RenderingContext2DRef final : public UniqueRef<RenderingContext2D> {
+public:
+	using UniqueRef::UniqueRef;
+};
+
+class Graphics {
+private:
+	Control* m_Device;
+
+public:
+	explicit Graphics(Control& control) noexcept;
+	Graphics(const Graphics&) = delete;
+	virtual ~Graphics() = default;
+
+public:
+	Graphics& operator=(const Graphics&) = delete;
+
+public:
+	std::pair<int, int> GetSize() const;
+	int GetWidth() const;
+	int GetHeight() const;
+
+	RenderingContext2DRef GetContext2D();
+
+protected:
+	virtual RenderingContext2DRef PALGetContext2D(Control& control) = 0;
+};
+
+class GraphicsRef final : public UniqueRef<Graphics> {
+public:
+	using UniqueRef::UniqueRef;
 };

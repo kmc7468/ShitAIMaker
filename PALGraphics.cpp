@@ -1,6 +1,8 @@
 #include "PALGraphics.hpp"
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 void InitializeGraphics() {
 	PALInitializeGraphics();
@@ -149,7 +151,7 @@ void* Menu::GetHandle() noexcept {
 }
 
 MenuRef::MenuRef()
-	: GraphicsObjectRef(PALCreateMenu()) {}
+	: UniqueRef(PALCreateMenu()) {}
 
 void ClickableEventHandler::OnClick(Control&) {}
 
@@ -187,7 +189,7 @@ ClickableEventHandler& MenuItem::GetEventHandler() noexcept {
 }
 
 MenuItemRef::MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler)
-	: GraphicsObjectRef(CreateMenuItem(std::move(string), std::move(eventHandler))) {}
+	: UniqueRef(CreateMenuItem(std::move(string), std::move(eventHandler))) {}
 
 std::unique_ptr<MenuItem> MenuItemRef::CreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
@@ -220,7 +222,9 @@ MenuItem& DropDownMenuItem::AddSubItem(MenuItemRef&& subItem) {
 }
 
 DropDownMenuItemRef::DropDownMenuItemRef(std::string string)
-	: GraphicsObjectRef(PALCreateDropDownMenuItem(std::move(string))) {}
+	: UniqueRef(PALCreateDropDownMenuItem(std::move(string))) {}
+
+void PaintableEventHandler::OnPaint(Control&, Graphics&) {}
 
 Window::Window() noexcept {}
 
@@ -244,10 +248,10 @@ Menu& Window::SetMenu(MenuRef&& menu) {
 	return movedMenu;
 }
 
-WindowRef::WindowRef(std::unique_ptr<EventHandler>&& eventHandler)
-	: GraphicsObjectRef(PALCreateWindow(std::move(eventHandler))) {}
+WindowRef::WindowRef(std::unique_ptr<PaintableEventHandler>&& eventHandler)
+	: UniqueRef(PALCreateWindow(std::move(eventHandler))) {}
 
-std::unique_ptr<Window> WindowRef::CreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
+std::unique_ptr<Window> WindowRef::CreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
 
 	return PALCreateWindow(std::move(eventHandler));
@@ -265,10 +269,127 @@ int RunEventLoop(WindowRef& mainWindow) {
 Button::Button() noexcept {}
 
 ButtonRef::ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler)
-	: GraphicsObjectRef(PALCreateButton(std::move(eventHandler))) {}
+	: UniqueRef(PALCreateButton(std::move(eventHandler))) {}
 
 std::unique_ptr<Button> ButtonRef::CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
 
 	return PALCreateButton(std::move(eventHandler));
+}
+
+const Color Color::Black(0, 0, 0);
+const Color Color::Red(255, 0, 0);
+const Color Color::Green(0, 255, 0);
+const Color Color::Blue(0, 0, 255);
+const Color Color::Yellow(255, 255, 0);
+const Color Color::Cyan(0, 255, 255);
+const Color Color::Magenta(255, 0, 255);
+const Color Color::White(255, 255, 255);
+
+Color::Color(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a) noexcept
+	: R(r), G(g), B(b), A(a) {}
+
+Pen::Pen(float width) noexcept
+	: m_Width(width) {
+	assert(std::isfinite(width));
+	assert(width > 0);
+}
+
+float Pen::GetWidth() const noexcept {
+	return m_Width;
+}
+
+SolidPen::SolidPen(Color color) noexcept
+	: m_Color(color) {}
+
+SolidPen::~SolidPen() {}
+
+Color SolidPen::GetColor() const noexcept {
+	return m_Color;
+}
+
+SolidPenRef::SolidPenRef(Color color, float width)
+	: SharedRef(PALCreateSolidPen(color, width)) {}
+
+SolidBrush::SolidBrush(Color color) noexcept
+	: m_Color(color) {}
+
+Color SolidBrush::GetColor() const noexcept {
+	return m_Color;
+}
+
+SolidBrushRef::SolidBrushRef(Color color)
+	: SharedRef(PALCreateSolidBrush(color)) {}
+
+RenderingContext::RenderingContext(Graphics& graphics) noexcept
+	: m_Graphics(&graphics) {}
+
+const Graphics& RenderingContext::GetGraphics() const noexcept {
+	return *m_Graphics;
+}
+Graphics& RenderingContext::GetGraphics() noexcept {
+	return *m_Graphics;
+}
+
+RenderingContext2D::RenderingContext2D(Graphics& graphics)
+	: RenderingContext(graphics), m_Pen(nullptr), m_Brush(nullptr) {
+	static const SolidPenRef blackPen(Color::Black, 1);
+	static const SolidBrushRef blackBrush(Color::Black);
+
+	m_Pen = blackPen;
+	m_Brush = blackBrush;
+}
+
+const Pen& RenderingContext2D::GetPen() const noexcept {
+	return m_Pen.Get();
+}
+PenRef RenderingContext2D::SetPen(PenRef newPen) {
+	assert(!newPen.IsEmpty());
+
+	PALSetPen(newPen.Get());
+	std::swap(m_Pen, newPen);
+
+	return newPen;
+}
+const Brush& RenderingContext2D::GetBrush() const noexcept {
+	return m_Brush.Get();
+}
+BrushRef RenderingContext2D::SetBrush(BrushRef newBrush) {
+	assert(!newBrush.IsEmpty());
+
+	PALSetBrush(newBrush.Get());
+	std::swap(m_Brush, newBrush);
+
+	return newBrush;
+}
+
+void RenderingContext2D::DrawRectangle(int x, int y, int width, int height) {
+	PALDrawRectangle(x, y, width, height);
+}
+void RenderingContext2D::DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
+	PALDrawRectangle(location.first, location.second, size.first, size.second);
+}
+
+void RenderingContext2D::FillRectangle(int x, int y, int width, int height) {
+	PALFillRectangle(x, y, width, height);
+}
+void RenderingContext2D::FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
+	PALFillRectangle(location.first, location.second, size.first, size.second);
+}
+
+Graphics::Graphics(Control& control) noexcept
+	: m_Device(&control) {}
+
+std::pair<int, int> Graphics::GetSize() const {
+	return m_Device->GetClientSize();
+}
+int Graphics::GetWidth() const {
+	return GetSize().first;
+}
+int Graphics::GetHeight() const {
+	return GetSize().second;
+}
+
+RenderingContext2DRef Graphics::GetContext2D() {
+	return PALGetContext2D(*m_Device);
 }

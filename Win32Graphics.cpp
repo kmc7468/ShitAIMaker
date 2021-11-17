@@ -2,8 +2,10 @@
 #include "PALGraphics.hpp"
 
 #include <cassert>
-#include <cstdint>
+#include <stdexcept>
 #include <Windows.h>
+
+#include <gdiplus.h>
 
 #define WM_REFLECT WM_USER + 0x1C00
 
@@ -17,12 +19,29 @@ namespace {
 	void RegisterWindowClass();
 }
 
+namespace {
+	ULONG_PTR g_GdiplusToken;
+
+	void InitializeGdiplus() {
+		Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+
+		if (Gdiplus::GdiplusStartup(&g_GdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
+			throw std::runtime_error("Failed to start up GDI+");
+	}
+	void FinalizeGdiplus() {
+		Gdiplus::GdiplusShutdown(g_GdiplusToken);
+	}
+}
+
 void PALInitializeGraphics() {
 	g_Instance = GetModuleHandle(nullptr);
 
 	RegisterWindowClass();
+	InitializeGdiplus();
 }
-void PALFinalizeGraphics() noexcept {}
+void PALFinalizeGraphics() noexcept {
+	FinalizeGdiplus();
+}
 
 class Win32Control;
 
@@ -149,6 +168,7 @@ private:
 		}
 
 		GetEventHandler().OnCreate(*this);
+		InvalidateRect(Handle, nullptr, TRUE);
 	}
 	HWND GetParentHandle() {
 		return dynamic_cast<Win32Control&>(GetParent()).Handle;
@@ -319,7 +339,8 @@ namespace {
 		wndClass.lpszMenuName = nullptr;
 		wndClass.style = CS_VREDRAW | CS_HREDRAW;
 
-		RegisterClassA(&wndClass);
+		if (RegisterClassA(&wndClass) == 0)
+			throw std::runtime_error("Failed to register window class");
 	}
 }
 
@@ -328,7 +349,7 @@ public:
 	bool IsMainWindow = false;
 
 public:
-	Win32Window(std::unique_ptr<EventHandler>&& eventHandler) noexcept
+	Win32Window(std::unique_ptr<PaintableEventHandler>&& eventHandler) noexcept
 		: Control(std::move(eventHandler)), Win32Control("Window", WS_OVERLAPPEDWINDOW) {}
 	Win32Window(const Win32Control&) = delete;
 	virtual ~Win32Window() override = default;
@@ -350,6 +371,11 @@ protected:
 protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
 		switch (message) {
+		case WM_PAINT:
+			WmPaint();
+
+			return 0;
+
 		case WM_CLOSE:
 			DestroyWindow(Handle);
 
@@ -365,9 +391,12 @@ protected:
 
 		return Win32Control::Callback(message, wParam, lParam);
 	}
+
+private:
+	void WmPaint();
 };
 
-std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<EventHandler>&& eventHandler) {
+std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Window>(std::move(eventHandler));
 }
 
@@ -417,4 +446,113 @@ protected:
 std::unique_ptr<Button> ButtonRef::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Button>(std::move(eventHandler));
 }
+
+class Win32Pen final : public SolidPen {
+public:
+	Gdiplus::Pen Object;
+
+public:
+	Win32Pen(Color color, float width)
+		: Pen(width), SolidPen(color), Object(Gdiplus::Color(color.R, color.G, color.B), width) {}
+	Win32Pen(const Win32Pen&) = delete;
+	virtual ~Win32Pen() override = default;
+
+public:
+	Win32Pen& operator=(const Win32Pen&) = delete;
+};
+
+std::shared_ptr<SolidPen> SolidPenRef::PALCreateSolidPen(Color color, float width) {
+	return std::make_shared<Win32Pen>(color, width);
+}
+
+class Win32Brush : public virtual Brush {
+public:
+	Gdiplus::Brush& Object;
+
+public:
+	explicit Win32Brush(Gdiplus::Brush& brush) noexcept
+		: Object(brush) {}
+	Win32Brush(const Win32Brush&) = delete;
+	virtual ~Win32Brush() override = default;
+
+public:
+	Win32Brush& operator=(const Win32Brush&) = delete;
+};
+
+class Win32SolidBrush final : public SolidBrush, public Win32Brush {
+private:
+	Gdiplus::SolidBrush m_SolidBrush;
+
+public:
+	explicit Win32SolidBrush(Color color)
+		: SolidBrush(color), Win32Brush(m_SolidBrush), m_SolidBrush(Gdiplus::Color(color.R, color.G, color.B)) {}
+	Win32SolidBrush(const Win32SolidBrush&) = delete;
+	virtual ~Win32SolidBrush() override = default;
+
+public:
+	Win32SolidBrush& operator=(const Win32SolidBrush&) = delete;
+};
+
+std::shared_ptr<SolidBrush> SolidBrushRef::PALCreateSolidBrush(Color color) {
+	return std::make_shared<Win32SolidBrush>(color);
+}
+
+class Win32RenderingContext2D : public RenderingContext2D {
+private:
+	Gdiplus::Graphics m_Graphics;
+
+public:
+	Win32RenderingContext2D(Graphics& graphics, HDC deviceContext);
+	Win32RenderingContext2D(const Win32RenderingContext2D&) = delete;
+	virtual ~Win32RenderingContext2D() override = default;
+
+public:
+	Win32RenderingContext2D& operator=(const Win32RenderingContext2D&) = delete;
+
+protected:
+	virtual void PALSetPen(Pen&) override {}
+	virtual void PALSetBrush(Brush&) override {}
+
+	virtual void PALDrawRectangle(int x, int y, int width, int height) override {
+		m_Graphics.DrawRectangle(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x, y, width, height);
+	}
+
+	virtual void PALFillRectangle(int x, int y, int width, int height) override {
+		m_Graphics.FillRectangle(&dynamic_cast<const Win32Brush&>(GetBrush()).Object, x, y, width, height);
+	}
+};
+
+class Win32Graphics final : public Graphics {
+public:
+	HDC DeviceContext;
+
+public:
+	Win32Graphics(Control& control, HDC deviceContext) noexcept
+		: Graphics(control), DeviceContext(deviceContext) {
+		assert(deviceContext != nullptr);
+	}
+	Win32Graphics(const Win32Graphics&) = delete;
+	virtual ~Win32Graphics() override = default;
+
+public:
+	Win32Graphics& operator=(const Win32Graphics&) = delete;
+
+protected:
+	virtual RenderingContext2DRef PALGetContext2D(Control& control) override {
+		return { std::make_unique<Win32RenderingContext2D>(*this, DeviceContext) };
+	}
+};
+
+void Win32Window::WmPaint() {
+	PAINTSTRUCT ps;
+	const HDC dc = BeginPaint(Handle, &ps);
+
+	Win32Graphics graphics(*this, dc);
+
+	dynamic_cast<PaintableEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	EndPaint(Handle, &ps);
+}
+
+Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceContext)
+	: RenderingContext2D(graphics), m_Graphics(deviceContext) {}
 #endif
