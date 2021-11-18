@@ -79,7 +79,7 @@ class ResourceFile final : public ResourceObject {
 	friend class ResourceDirectory;
 
 private:
-	std::variant<std::monostate, Matrix> m_Content;
+	std::variant<std::monostate, Matrix, TrainSample, TrainData> m_Content;
 
 public:
 	ResourceFile(const ResourceFile&) = delete;
@@ -91,11 +91,15 @@ private:
 
 public:
 	ResourceFile& operator=(Matrix matrix);
+	ResourceFile& operator=(TrainSample trainSample);
+	ResourceFile& operator=(TrainData trainData);
 	ResourceFile& operator=(const ResourceFile&) = delete;
 
 public:
 	bool IsEmpty() const noexcept;
 	const Matrix* IsMatrix() const noexcept;
+	const TrainSample* IsTrainSample() const noexcept;
+	const TrainData* IsTrainData() const noexcept;
 };
 
 class Project final {

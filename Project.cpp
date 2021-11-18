@@ -113,12 +113,30 @@ ResourceFile& ResourceFile::operator=(Matrix matrix) {
 
 	return *this;
 }
+ResourceFile& ResourceFile::operator=(TrainSample trainSample) {
+	m_Content = std::move(trainSample);
+	SetLastEditTime(std::chrono::system_clock::now());
+
+	return *this;
+}
+ResourceFile& ResourceFile::operator=(TrainData trainData) {
+	m_Content = std::move(trainData);
+	SetLastEditTime(std::chrono::system_clock::now());
+
+	return *this;
+}
 
 bool ResourceFile::IsEmpty() const noexcept {
 	return m_Content.index() == 0;
 }
 const Matrix* ResourceFile::IsMatrix() const noexcept {
 	return m_Content.index() == 1 ? &std::get<1>(m_Content) : nullptr;
+}
+const TrainSample* ResourceFile::IsTrainSample() const noexcept {
+	return m_Content.index() == 2 ? &std::get<2>(m_Content) : nullptr;
+}
+const TrainData* ResourceFile::IsTrainData() const noexcept {
+	return m_Content.index() == 3 ? &std::get<3>(m_Content) : nullptr;
 }
 
 std::string_view Project::GetName() const noexcept {
@@ -194,6 +212,28 @@ namespace {
 			bin.Write(parameter.GetValue());
 			bin.Write(parameter.GetGradient());
 			WriteVariableTable(bin, parameter.GetVariableTable());
+		}
+	}
+
+	void ReadTrainSample(BinaryAdaptor& bin, TrainSample& trainSample) {
+		trainSample.first = bin.ReadMatrix();
+		trainSample.second = bin.ReadMatrix();
+	}
+	void WriteTrainSample(BinaryAdaptor& bin, const TrainSample& trainSample) {
+		bin.Write(trainSample.first);
+		bin.Write(trainSample.second);
+	}
+	void ReadTrainData(BinaryAdaptor& bin, TrainData& trainData) {
+		const std::uint32_t sampleCount = bin.ReadInt32();
+
+		for (std::uint32_t i = 0; i < sampleCount; ++i) {
+			ReadTrainSample(bin, trainData.emplace_back());
+		}
+	}
+	void WriteTrainData(BinaryAdaptor& bin, const TrainData& trainData) {
+		bin.Write(static_cast<std::int32_t>(trainData.size()));
+		for (const auto& trainSample : trainData) {
+			WriteTrainSample(bin, trainSample);
 		}
 	}
 
@@ -300,6 +340,16 @@ namespace {
 			if (valueType == "Empty") {}
 			else if (valueType == "Matrix") {
 				file = bin.ReadMatrix();
+			} else if (valueType == "TrainSample") {
+				TrainSample trainSample;
+
+				ReadTrainSample(bin, trainSample);
+				file = std::move(trainSample);
+			} else if (valueType == "TrainData") {
+				TrainData trainData;
+
+				ReadTrainData(bin, trainData);
+				file = std::move(trainData);
 			} else throw std::runtime_error("Invalid resource file type name");
 		} else throw std::runtime_error("Invalid resource object name");
 	}
@@ -323,6 +373,12 @@ namespace {
 			} else if (const auto matrix = file->IsMatrix(); matrix) {
 				bin.Write("Matrix");
 				bin.Write(*matrix);
+			} else if (const auto trainSample = file->IsTrainSample(); trainSample) {
+				bin.Write("TrainSample");
+				WriteTrainSample(bin, *trainSample);
+			} else if (const auto trainData = file->IsTrainData(); trainData) {
+				bin.Write("TrainData");
+				WriteTrainData(bin, *trainData);
 			}
 		}
 	}
