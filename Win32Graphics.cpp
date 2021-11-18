@@ -94,14 +94,16 @@ protected:
 	virtual std::pair<int, int> PALGetSize() const override {
 		if (Handle) {
 			RECT rect;
-			GetWindowRect(Handle, &rect);
+			const BOOL result = GetWindowRect(Handle, &rect);
+			if (!result) throw std::runtime_error("Failed to get the size of a control");
 
 			return { static_cast<int>(rect.right - rect.left), static_cast<int>(rect.bottom - rect.top) };
 		} else return CreateParams.Size;
 	}
 	virtual void PALSetSize(int newWidth, int newHeight) override {
 		if (Handle) {
-			SetWindowPos(Handle, nullptr, 0, 0, newWidth, newHeight, SWP_NOZORDER | SWP_NOMOVE);
+			const BOOL result = SetWindowPos(Handle, nullptr, 0, 0, newWidth, newHeight, SWP_NOZORDER | SWP_NOMOVE);
+			if (!result) throw std::runtime_error("Failed to set the size of a control");
 		} else {
 			CreateParams.Size = { newWidth, newHeight };
 		}
@@ -110,21 +112,24 @@ protected:
 		assert(Handle != nullptr);
 
 		RECT clientRect;
-		GetClientRect(Handle, &clientRect);
+		const BOOL result = GetClientRect(Handle, &clientRect);
+		if (!result) throw std::runtime_error("Failed to get the client size of a control");
 
 		return { static_cast<int>(clientRect.right), static_cast<int>(clientRect.bottom) };
 	}
 	virtual std::pair<int, int> PALGetLocation() const override {
 		if (Handle) {
 			RECT rect;
-			GetWindowRect(Handle, &rect);
+			const BOOL result = GetWindowRect(Handle, &rect);
+			if (!result) throw std::runtime_error("Failed to get the location of a control");
 
 			return { static_cast<int>(rect.left), static_cast<int>(rect.top) };
 		} else return CreateParams.Location;
 	}
 	virtual void PALSetLocation(int newX, int newY) override {
 		if (Handle) {
-			SetWindowPos(Handle, nullptr, newX, newY, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			const BOOL result = SetWindowPos(Handle, nullptr, newX, newY, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			if (!result) throw std::runtime_error("Failed to set the location of a control");
 		} else {
 			CreateParams.Location = { newX, newY };
 		}
@@ -135,7 +140,8 @@ protected:
 	}
 	virtual void PALSetVisibility(bool newVisibility) override {
 		if (Handle) {
-			ShowWindow(Handle, newVisibility ? SW_SHOW : SW_HIDE);
+			const BOOL result = ShowWindow(Handle, newVisibility ? SW_SHOW : SW_HIDE);
+			if (!result) throw std::runtime_error("Failed to set the visibility of a control");
 		} else {
 			if (newVisibility) {
 				CreateParams.Style |= WS_VISIBLE;
@@ -157,7 +163,7 @@ private:
 			CreateParams.Style, CreateParams.Location.first, CreateParams.Location.second,
 			CreateParams.Size.first, CreateParams.Size.second, HasParent() ? GetParentHandle() : nullptr,
 			CreateParams.Menu, g_Instance, CreateParams.Param);
-		assert(Handle != nullptr);
+		if (Handle == nullptr) throw std::runtime_error("Failed to create the handle of a control");
 
 		SetWindowLongPtr(Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		m_OldCallback = reinterpret_cast<WNDPROC>(
@@ -218,7 +224,7 @@ public:
 public:
 	Win32Menu() {
 		Handle = CreateMenu();
-		assert(Handle != nullptr);
+		if (Handle == nullptr) throw std::runtime_error("Failed to create the handle of a menu");
 	}
 	Win32Menu(const Win32Menu&) = delete;
 	virtual ~Win32Menu() override {
@@ -271,7 +277,7 @@ protected:
 	virtual void PALAddSubItem(MenuItem& subItem) override {
 		if (!PopupMenu) {
 			PopupMenu = CreatePopupMenu();
-			assert(*PopupMenu != nullptr);
+			if (PopupMenu == nullptr) throw std::runtime_error("Failed to create the handle of a menu item");
 
 			if (HasParent()) {
 				AddItemToParent(static_cast<HMENU>(
@@ -290,10 +296,14 @@ public:
 		const LPCSTR item = String ? String->data() : nullptr;
 
 		if (isModify) {
-			ModifyMenuA(parent, static_cast<UINT>(index), flag | MF_BYPOSITION, itemId, item);
-			DrawMenuBar(GetParentWindow());
+			BOOL result = ModifyMenuA(parent, static_cast<UINT>(index), flag | MF_BYPOSITION, itemId, item);
+			if (!result) throw std::runtime_error("Failed to add a menu item to its parent");
+
+			result = DrawMenuBar(GetParentWindow());
+			if (!result) throw std::runtime_error("Failed to add a menu item to its parent");
 		} else {
-			AppendMenuA(parent, flag, itemId, item);
+			const BOOL result = AppendMenuA(parent, flag, itemId, item);
+			if (!result) throw std::runtime_error("Failed to add a menu item to its parent");
 
 			m_Index = index;
 		}
@@ -340,7 +350,7 @@ namespace {
 		wndClass.style = CS_VREDRAW | CS_HREDRAW;
 
 		if (RegisterClassA(&wndClass) == 0)
-			throw std::runtime_error("Failed to register window class");
+			throw std::runtime_error("Failed to register a window class");
 	}
 }
 
@@ -362,7 +372,8 @@ protected:
 		const HMENU menuHandle = static_cast<Win32Menu&>(menu).Handle;
 
 		if (Handle) {
-			::SetMenu(Handle, menuHandle);
+			const BOOL result = ::SetMenu(Handle, menuHandle);
+			if (!result) throw std::runtime_error("Failed to add a menu item to its parent");
 		} else {
 			CreateParams.Menu = menuHandle;
 		}

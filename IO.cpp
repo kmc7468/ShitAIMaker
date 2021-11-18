@@ -7,6 +7,7 @@
 #include <climits>
 #include <iterator>
 #include <limits>
+#include <stdexcept>
 
 static_assert(CHAR_BIT == 8);
 static_assert(std::endian::native == std::endian::little || std::endian::native == std::endian::big);
@@ -29,6 +30,9 @@ void BinaryAdaptor::ReadBytes(void* array, std::size_t byteCount) {
 	assert(m_IStream != nullptr);
 
 	m_IStream->read(static_cast<char*>(array), static_cast<std::streamsize>(byteCount));
+
+	if (!m_IStream->good())
+		throw std::runtime_error("Failed to read a file");
 }
 std::string BinaryAdaptor::ReadString() {
 	const std::uint32_t utf8Length = ReadInt32();
@@ -88,6 +92,9 @@ void BinaryAdaptor::Write(const void* array, std::size_t byteCount) {
 	assert(m_OStream != nullptr);
 
 	m_OStream->write(static_cast<const char*>(array), static_cast<std::streamsize>(byteCount));
+
+	if (!m_IStream->good())
+		throw std::runtime_error("Failed to write to a file");
 }
 void BinaryAdaptor::Write(const std::string& string) {
 	const std::u8string utf8 = EncodeToUTF8(string);

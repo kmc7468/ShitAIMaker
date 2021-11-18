@@ -1,5 +1,6 @@
 #include "Layer.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <utility>
@@ -308,6 +309,7 @@ float Sigmoid(float x) {
 }
 float SigmoidDerivative(float x) {
 	const float y = Sigmoid(x);
+
 	return y * (1 - y);
 }
 float Tanh(float x) {

@@ -347,7 +347,7 @@ void Project::Load(std::filesystem::path path) {
 	assert(m_Path.empty());
 
 	std::ifstream stream(path, std::ios::binary);
-	assert(stream);
+	if (!stream) throw std::runtime_error("Failed to open a file");
 
 	BinaryAdaptor bin(stream);
 
@@ -377,7 +377,7 @@ void Project::Save() const {
 	assert(!m_Path.empty());
 
 	std::ofstream stream(m_Path, std::ios::binary);
-	assert(stream);
+	if (!stream) throw std::runtime_error("Failed to open a file");
 
 	BinaryAdaptor bin(stream);
 
