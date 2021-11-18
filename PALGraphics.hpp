@@ -244,20 +244,20 @@ private:
 	static std::unique_ptr<Menu> PALCreateMenu();
 };
 
-class ClickableEventHandler : public virtual EventHandler {
-public:
-	ClickableEventHandler() noexcept = default;
-	ClickableEventHandler(const ClickableEventHandler&) = delete;
-	virtual ~ClickableEventHandler() override = default;
-
-public:
-	ClickableEventHandler& operator=(const ClickableEventHandler&) = delete;
-
-public:
-	virtual void OnClick(Control& control);
-};
-
 class DropDownMenuItem;
+
+class MenuItemEventHandler {
+public:
+	MenuItemEventHandler() noexcept = default;
+	MenuItemEventHandler(const MenuItemEventHandler&) = delete;
+	virtual ~MenuItemEventHandler() = default;
+
+public:
+	MenuItemEventHandler& operator=(const MenuItemEventHandler&) = delete;
+
+public:
+	virtual void OnClick(MenuItem& menuItem);
+};
 
 class MenuItem {
 	friend class DropDownMenuItem;
@@ -265,10 +265,10 @@ class MenuItem {
 
 private:
 	std::variant<std::monostate, Menu*, MenuItem*> m_Parent;
-	std::unique_ptr<ClickableEventHandler> m_EventHandler;
+	std::unique_ptr<MenuItemEventHandler> m_EventHandler;
 
 public:
-	explicit MenuItem(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept;
+	explicit MenuItem(std::unique_ptr<MenuItemEventHandler>&& eventHandler) noexcept;
 	MenuItem(const MenuItem&) = delete;
 	virtual ~MenuItem() = default;
 
@@ -284,7 +284,7 @@ public:
 	const MenuItem& GetParentItem() const noexcept;
 	MenuItem& GetParentItem() noexcept;
 	void* GetHandle() noexcept;
-	ClickableEventHandler& GetEventHandler() noexcept;
+	MenuItemEventHandler& GetEventHandler() noexcept;
 
 protected:
 	virtual void* PALGetHandle() noexcept = 0;
@@ -294,11 +294,11 @@ class MenuItemRef final : public UniqueRef<MenuItem> {
 public:
 	using UniqueRef::UniqueRef;
 
-	explicit MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	explicit MenuItemRef(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<MenuItem> CreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
-	static std::unique_ptr<MenuItem> PALCreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	static std::unique_ptr<MenuItem> CreateMenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler);
+	static std::unique_ptr<MenuItem> PALCreateMenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler);
 };
 
 class DropDownMenuItem : public virtual MenuItem {
@@ -338,7 +338,7 @@ class Graphics;
 class PaintableEventHandler : public virtual EventHandler {
 public:
 	PaintableEventHandler() noexcept = default;
-	PaintableEventHandler(const ClickableEventHandler&) = delete;
+	PaintableEventHandler(const PaintableEventHandler&) = delete;
 	virtual ~PaintableEventHandler() override = default;
 
 public:
@@ -347,6 +347,8 @@ public:
 public:
 	virtual void OnPaint(Control& control, Graphics& graphics);
 };
+
+using WindowEventHandler = PaintableEventHandler;
 
 class Window : public virtual Control {
 private:
@@ -361,12 +363,17 @@ public:
 	Window& operator=(const Window&) = delete;
 
 public:
+	std::pair<int, int> GetMinimumSize() const;
+	void SetMinimumSize(int newMinimumWidth, int newMinimumHeight);
+	void SetMinimumSize(const std::pair<int, int>& newMinimumSize);
 	bool HasMenu() const noexcept;
 	const Menu& GetMenu() const noexcept;
 	Menu& GetMenu() noexcept;
 	Menu& SetMenu(MenuRef&& menu);
 
 protected:
+	virtual std::pair<int, int> PALGetMinimumSize() const = 0;
+	virtual void PALSetMinimumSize(int newMinimumWidth, int newMinimumHeight) = 0;
 	virtual void PALSetMenu(Menu& menu) = 0;
 };
 
@@ -374,17 +381,32 @@ class WindowRef final : public UniqueRef<Window> {
 public:
 	using UniqueRef::UniqueRef;
 
-	explicit WindowRef(std::unique_ptr<PaintableEventHandler>&& eventHandler);
+	explicit WindowRef(std::unique_ptr<WindowEventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<Window> CreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler);
-	static std::unique_ptr<Window> PALCreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler);
+	static std::unique_ptr<Window> CreateWindow(std::unique_ptr<WindowEventHandler>&& eventHandler);
+	static std::unique_ptr<Window> PALCreateWindow(std::unique_ptr<WindowEventHandler>&& eventHandler);
 };
 
 int RunEventLoop();
 int RunEventLoop(WindowRef& mainWindow);
 
 int PALRunEventLoop(WindowRef* mainWindow);
+
+class ClickableEventHandler : public virtual EventHandler {
+public:
+	ClickableEventHandler() noexcept = default;
+	ClickableEventHandler(const ClickableEventHandler&) = delete;
+	virtual ~ClickableEventHandler() override = default;
+
+public:
+	ClickableEventHandler& operator=(const ClickableEventHandler&) = delete;
+
+public:
+	virtual void OnClick(Control& control);
+};
+
+using ButtonEventHandler = ClickableEventHandler;
 
 class Button : public virtual Control {
 public:
@@ -400,11 +422,11 @@ class ButtonRef final : public UniqueRef<Button> {
 public:
 	using UniqueRef::UniqueRef;
 
-	explicit ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	explicit ButtonRef(std::unique_ptr<ButtonEventHandler>&& eventHandler);
 
 private:
-	static std::unique_ptr<Button> CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
-	static std::unique_ptr<Button> PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler);
+	static std::unique_ptr<Button> CreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler);
+	static std::unique_ptr<Button> PALCreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler);
 };
 
 class Color final {

@@ -290,7 +290,7 @@ private:
 	UINT_PTR m_Id = 0;
 
 public:
-	Win32MenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+	Win32MenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler) noexcept
 		: MenuItem(std::move(eventHandler)), String(std::move(string)) {}
 	Win32MenuItem(const Win32MenuItem&) = delete;
 	virtual ~Win32MenuItem() override {
@@ -357,12 +357,13 @@ private:
 	}
 };
 
-std::unique_ptr<MenuItem> MenuItemRef::PALCreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<MenuItem> MenuItemRef::PALCreateMenuItem(std::string string,
+	std::unique_ptr<MenuItemEventHandler>&& eventHandler) {
 	return std::make_unique<Win32MenuItem>(std::move(string), std::move(eventHandler));
 }
 
 std::unique_ptr<DropDownMenuItem> DropDownMenuItemRef::PALCreateDropDownMenuItem(std::string string) {
-	return std::make_unique<Win32MenuItem>(std::move(string), std::make_unique<ClickableEventHandler>());
+	return std::make_unique<Win32MenuItem>(std::move(string), std::make_unique<MenuItemEventHandler>());
 }
 
 void Win32Menu::PALAddItem(MenuItem& item) {
@@ -390,8 +391,11 @@ class Win32Window final : public Window, public Win32Control {
 public:
 	bool IsMainWindow = false;
 
+private:
+	std::pair<int, int> m_MinimumSize{ 0, 0 };
+
 public:
-	Win32Window(std::unique_ptr<PaintableEventHandler>&& eventHandler) noexcept
+	Win32Window(std::unique_ptr<WindowEventHandler>&& eventHandler) noexcept
 		: Control(std::move(eventHandler)), Win32Control("Window", WS_OVERLAPPEDWINDOW) {}
 	Win32Window(const Win32Control&) = delete;
 	virtual ~Win32Window() override = default;
@@ -400,6 +404,13 @@ public:
 	Win32Window& operator=(const Win32Window&) = delete;
 
 protected:
+	virtual std::pair<int, int> PALGetMinimumSize() const override {
+		return m_MinimumSize;
+	}
+	virtual void PALSetMinimumSize(int newMinimumWidth, int newMinimumHeight) override {
+		m_MinimumSize.first = newMinimumWidth;
+		m_MinimumSize.second = newMinimumHeight;
+	}
 	virtual void PALSetMenu(Menu& menu) override {
 		const HMENU menuHandle = static_cast<Win32Menu&>(menu).Handle;
 
@@ -418,6 +429,15 @@ protected:
 			WmPaint();
 
 			return 0;
+
+		case WM_GETMINMAXINFO: {
+			const LPMINMAXINFO sizeInfo = reinterpret_cast<LPMINMAXINFO>(lParam);
+
+			sizeInfo->ptMinTrackSize.x = m_MinimumSize.first;
+			sizeInfo->ptMinTrackSize.y = m_MinimumSize.second;
+
+			return 0;
+		}
 
 		case WM_CLOSE:
 			DestroyWindow(Handle);
@@ -439,7 +459,7 @@ private:
 	void WmPaint();
 };
 
-std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler) {
+std::unique_ptr<Window> WindowRef::PALCreateWindow(std::unique_ptr<WindowEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Window>(std::move(eventHandler));
 }
 
@@ -460,7 +480,7 @@ int PALRunEventLoop(WindowRef* mainWindow) {
 
 class Win32Button final : public Button, public Win32Control {
 public:
-	Win32Button(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+	Win32Button(std::unique_ptr<ButtonEventHandler>&& eventHandler) noexcept
 		: Control(std::move(eventHandler)), Win32Control("Button", WS_CHILD | BS_PUSHBUTTON) {}
 	Win32Button(const Win32Control&) = delete;
 	virtual ~Win32Button() override = default;
@@ -474,7 +494,7 @@ protected:
 		case WM_REFLECT + WM_COMMAND:
 			switch (HIWORD(wParam)) {
 			case BN_CLICKED:
-				dynamic_cast<ClickableEventHandler&>(GetEventHandler()).OnClick(*this);
+				dynamic_cast<ButtonEventHandler&>(GetEventHandler()).OnClick(*this);
 
 				break;
 			}
@@ -486,7 +506,7 @@ protected:
 	}
 };
 
-std::unique_ptr<Button> ButtonRef::PALCreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<Button> ButtonRef::PALCreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Button>(std::move(eventHandler));
 }
 
@@ -592,7 +612,7 @@ void Win32Window::WmPaint() {
 
 	Win32Graphics graphics(*this, dc);
 
-	dynamic_cast<PaintableEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	dynamic_cast<WindowEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
 	EndPaint(Handle, &ps);
 }
 

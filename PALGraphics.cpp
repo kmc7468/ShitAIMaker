@@ -159,9 +159,9 @@ void* Menu::GetHandle() noexcept {
 MenuRef::MenuRef()
 	: UniqueRef(PALCreateMenu()) {}
 
-void ClickableEventHandler::OnClick(Control&) {}
+void MenuItemEventHandler::OnClick(MenuItem&) {}
 
-MenuItem::MenuItem(std::unique_ptr<ClickableEventHandler>&& eventHandler) noexcept
+MenuItem::MenuItem(std::unique_ptr<MenuItemEventHandler>&& eventHandler) noexcept
 	: m_EventHandler(std::move(eventHandler)) {
 	assert(m_EventHandler != nullptr);
 }
@@ -190,14 +190,14 @@ MenuItem& MenuItem::GetParentItem() noexcept {
 void* MenuItem::GetHandle() noexcept {
 	return PALGetHandle();
 }
-ClickableEventHandler& MenuItem::GetEventHandler() noexcept {
+MenuItemEventHandler& MenuItem::GetEventHandler() noexcept {
 	return *m_EventHandler.get();
 }
 
-MenuItemRef::MenuItemRef(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler)
+MenuItemRef::MenuItemRef(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler)
 	: UniqueRef(CreateMenuItem(std::move(string), std::move(eventHandler))) {}
 
-std::unique_ptr<MenuItem> MenuItemRef::CreateMenuItem(std::string string, std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<MenuItem> MenuItemRef::CreateMenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
 
 	return PALCreateMenuItem(std::move(string), std::move(eventHandler));
@@ -234,6 +234,25 @@ void PaintableEventHandler::OnPaint(Control&, Graphics&) {}
 
 Window::Window() noexcept {}
 
+std::pair<int, int> Window::GetMinimumSize() const {
+	return PALGetMinimumSize();
+}
+void Window::SetMinimumSize(int newMinimumWidth, int newMinimumHeight) {
+	assert(newMinimumWidth >= 0);
+	assert(newMinimumHeight >= 0);
+
+	PALSetMinimumSize(newMinimumWidth, newMinimumHeight);
+
+	auto size = GetSize();
+
+	size.first = std::max(newMinimumWidth, size.first);
+	size.second = std::max(newMinimumHeight, size.second);
+
+	SetSize(size);
+}
+void Window::SetMinimumSize(const std::pair<int, int>& newMinimumSize) {
+	SetMinimumSize(newMinimumSize.first, newMinimumSize.second);
+}
 bool Window::HasMenu() const noexcept {
 	return m_Menu.has_value();
 }
@@ -254,10 +273,10 @@ Menu& Window::SetMenu(MenuRef&& menu) {
 	return movedMenu;
 }
 
-WindowRef::WindowRef(std::unique_ptr<PaintableEventHandler>&& eventHandler)
+WindowRef::WindowRef(std::unique_ptr<WindowEventHandler>&& eventHandler)
 	: UniqueRef(PALCreateWindow(std::move(eventHandler))) {}
 
-std::unique_ptr<Window> WindowRef::CreateWindow(std::unique_ptr<PaintableEventHandler>&& eventHandler) {
+std::unique_ptr<Window> WindowRef::CreateWindow(std::unique_ptr<WindowEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
 
 	return PALCreateWindow(std::move(eventHandler));
@@ -272,12 +291,14 @@ int RunEventLoop(WindowRef& mainWindow) {
 	return PALRunEventLoop(&mainWindow);
 }
 
+void ClickableEventHandler::OnClick(Control&) {}
+
 Button::Button() noexcept {}
 
-ButtonRef::ButtonRef(std::unique_ptr<ClickableEventHandler>&& eventHandler)
+ButtonRef::ButtonRef(std::unique_ptr<ButtonEventHandler>&& eventHandler)
 	: UniqueRef(PALCreateButton(std::move(eventHandler))) {}
 
-std::unique_ptr<Button> ButtonRef::CreateButton(std::unique_ptr<ClickableEventHandler>&& eventHandler) {
+std::unique_ptr<Button> ButtonRef::CreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler) {
 	assert(eventHandler != nullptr);
 
 	return PALCreateButton(std::move(eventHandler));
@@ -373,14 +394,14 @@ void RenderingContext2D::DrawRectangle(int x, int y, int width, int height) {
 	PALDrawRectangle(x, y, width, height);
 }
 void RenderingContext2D::DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
-	PALDrawRectangle(location.first, location.second, size.first, size.second);
+	DrawRectangle(location.first, location.second, size.first, size.second);
 }
 
 void RenderingContext2D::FillRectangle(int x, int y, int width, int height) {
 	PALFillRectangle(x, y, width, height);
 }
 void RenderingContext2D::FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
-	PALFillRectangle(location.first, location.second, size.first, size.second);
+	FillRectangle(location.first, location.second, size.first, size.second);
 }
 
 Graphics::Graphics(Control& control) noexcept
