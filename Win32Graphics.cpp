@@ -453,7 +453,7 @@ public:
 
 public:
 	Win32Pen(Color color, float width)
-		: Pen(width), SolidPen(color), Object(Gdiplus::Color(color.R, color.G, color.B), width) {}
+		: Pen(width), SolidPen(color), Object(Gdiplus::Color(color.A, color.R, color.G, color.B), width) {}
 	Win32Pen(const Win32Pen&) = delete;
 	virtual ~Win32Pen() override = default;
 
@@ -485,7 +485,7 @@ private:
 
 public:
 	explicit Win32SolidBrush(Color color)
-		: SolidBrush(color), Win32Brush(m_SolidBrush), m_SolidBrush(Gdiplus::Color(color.R, color.G, color.B)) {}
+		: SolidBrush(color), Win32Brush(m_SolidBrush), m_SolidBrush(Gdiplus::Color(color.A, color.R, color.G, color.B)) {}
 	Win32SolidBrush(const Win32SolidBrush&) = delete;
 	virtual ~Win32SolidBrush() override = default;
 
@@ -538,7 +538,7 @@ public:
 	Win32Graphics& operator=(const Win32Graphics&) = delete;
 
 protected:
-	virtual RenderingContext2DRef PALGetContext2D(Control& control) override {
+	virtual RenderingContext2DRef PALGetContext2D(Control&) override {
 		return { std::make_unique<Win32RenderingContext2D>(*this, DeviceContext) };
 	}
 };

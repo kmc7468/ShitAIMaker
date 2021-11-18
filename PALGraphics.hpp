@@ -415,7 +415,7 @@ public:
 	static const Color White;
 
 public:
-	std::uint8_t R = 0, G = 0, B = 0, A = 0;
+	std::uint8_t R = 0, G = 0, B = 0, A = 255;
 
 public:
 	Color() noexcept = default;
