@@ -160,6 +160,8 @@ public:
 	void SetY(int newY);
 	bool GetVisibility() const;
 	void SetVisibility(bool newVisibility);
+	std::string GetText() const;
+	void SetText(const std::string& newText);
 
 	void Show();
 	void Hide();
@@ -175,6 +177,8 @@ protected:
 	virtual void PALSetLocation(int newX, int newY) = 0;
 	virtual bool PALGetVisibility() const = 0;
 	virtual void PALSetVisibility(bool newVisibility) = 0;
+	virtual std::string PALGetText() const = 0;
+	virtual void PALSetText(const std::string& newText) = 0;
 };
 
 class EventHandler {

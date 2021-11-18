@@ -105,6 +105,12 @@ bool Control::GetVisibility() const {
 void Control::SetVisibility(bool newVisibility) {
 	PALSetVisibility(newVisibility);
 }
+std::string Control::GetText() const {
+	return PALGetText();
+}
+void Control::SetText(const std::string& newText) {
+	PALSetText(newText);
+}
 
 void Control::Show() {
 	SetVisibility(true);

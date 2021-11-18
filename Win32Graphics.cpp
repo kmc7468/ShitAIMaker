@@ -154,6 +154,38 @@ protected:
 			}
 		}
 	}
+	virtual std::string PALGetText() const override {
+		if (Handle) {
+			SetLastError(0);
+
+			const int length = GetWindowTextLengthA(Handle);
+
+			if (length == 0) {
+				if (GetLastError() != 0) return {};
+				else throw std::runtime_error("Failed to get the text of a control");
+			}
+
+			std::string text(length + 1, 0);
+
+			const int readLength = GetWindowTextA(Handle, text.data(), length + 1);
+			if (readLength == 0) throw std::runtime_error("Failed to get the text of a control");
+
+			const std::size_t nullBegin = text.find_first_of('\0', 0);
+			if (nullBegin != std::string::npos) {
+				text.erase(text.begin() + nullBegin, text.end());
+			}
+
+			return text;
+		} else return CreateParams.WindowName;
+	}
+	virtual void PALSetText(const std::string& newText) override {
+		if (Handle) {
+			const BOOL result = SetWindowTextA(Handle, newText.data());
+			if (!result) throw std::runtime_error("Failed to set the text of a control");
+		} else {
+			CreateParams.WindowName = newText;
+		}
+	}
 
 private:
 	void CreateHandle() {
