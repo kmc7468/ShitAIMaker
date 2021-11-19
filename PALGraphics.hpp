@@ -1,10 +1,12 @@
 #pragma once
 
+#include <any>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -225,7 +227,7 @@ public:
 	Window& GetParent() noexcept;
 	const MenuItem& GetItem(std::size_t index) const noexcept;
 	MenuItem& GetItem(std::size_t index) noexcept;
-	std::size_t GetItemsCount() const noexcept;
+	std::size_t GetItemCount() const noexcept;
 	MenuItem& AddItem(MenuItemRef&& item);
 	void* GetHandle() noexcept;
 
@@ -316,7 +318,7 @@ public:
 public:
 	const MenuItem& GetSubItem(std::size_t index) const noexcept;
 	MenuItem& GetSubItem(std::size_t index) noexcept;
-	std::size_t GetSubItemsCount() const noexcept;
+	std::size_t GetSubItemCount() const noexcept;
 	MenuItem& AddSubItem(MenuItemRef&& subItem);
 
 protected:
@@ -348,7 +350,18 @@ public:
 	virtual void OnPaint(Control& control, Graphics& graphics);
 };
 
-using WindowEventHandler = PaintableEventHandler;
+class WindowEventHandler : public virtual PaintableEventHandler {
+public:
+	WindowEventHandler() noexcept = default;
+	WindowEventHandler(const WindowEventHandler&) = delete;
+	virtual ~WindowEventHandler() override = default;
+
+public:
+	WindowEventHandler& operator=(const WindowEventHandler&) = delete;
+
+public:
+	virtual void OnClose(Window& window, bool& cancel);
+};
 
 class Window : public virtual Control {
 private:
@@ -371,10 +384,14 @@ public:
 	Menu& GetMenu() noexcept;
 	Menu& SetMenu(MenuRef&& menu);
 
+	void Close();
+
 protected:
 	virtual std::pair<int, int> PALGetMinimumSize() const = 0;
 	virtual void PALSetMinimumSize(int newMinimumWidth, int newMinimumHeight) = 0;
 	virtual void PALSetMenu(Menu& menu) = 0;
+
+	virtual void PALClose() = 0;
 };
 
 class WindowRef final : public UniqueRef<Window> {
@@ -625,4 +642,93 @@ protected:
 class GraphicsRef final : public UniqueRef<Graphics> {
 public:
 	using UniqueRef::UniqueRef;
+};
+
+class Dialog {
+private:
+	const Window* m_Owner = nullptr;
+	std::optional<std::any> m_Result;
+
+public:
+	Dialog() noexcept = default;
+	explicit Dialog(const Window& owner) noexcept;
+	Dialog(const Dialog&) = delete;
+	virtual ~Dialog() = default;
+
+public:
+	Dialog& operator=(const Dialog&) = delete;
+
+public:
+	bool HasOwner() const noexcept;
+	const Window& GetOwner() const noexcept;
+	bool HasResult() const noexcept;
+	const std::any& GetResult() const noexcept;
+	std::any GetResult();
+
+protected:
+	void SetResult(std::any newResult) noexcept;
+
+public:
+	virtual void Show() = 0;
+};
+
+class MessageDialog : public virtual Dialog {
+public:
+	enum Icon {
+		None = 0,
+		Information,
+		Warning,
+		Error,
+	};
+
+	enum Button {
+		Ok = 1 << 0,
+		Yes = 1 << 1,
+		No = 1 << 2,
+		Cancel = 1 << 3,
+		Retry = 1 << 4,
+		Close = 1 << 5,
+	};
+
+private:
+	std::string m_DialogTitle;
+	std::string m_Title, m_Message;
+	Icon m_Icon;
+	Button m_Buttons;
+
+public:
+	MessageDialog(std::string dialogTitle, std::string title, std::string message, Icon icon = None,
+		Button buttons = Ok) noexcept;
+	MessageDialog(const MessageDialog&) = delete;
+	virtual ~MessageDialog() override = default;
+
+public:
+	MessageDialog& operator=(const MessageDialog&) = delete;
+
+public:
+	std::string_view GetDialogTitle() const noexcept;
+	std::string_view GetTitle() const noexcept;
+	std::string_view GetMessage() const noexcept;
+	Icon GetIcon() const noexcept;
+	Button GetButtons() const noexcept;
+
+public:
+	virtual void Show() override;
+
+protected:
+	virtual Button PALShow() = 0;
+};
+
+MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button rhs) noexcept;
+
+class MessageDialogRef final : public UniqueRef<MessageDialog> {
+public:
+	using UniqueRef::UniqueRef;
+
+	MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title, std::string message,
+		MessageDialog::Icon icon = MessageDialog::None, MessageDialog::Button buttons = MessageDialog::Ok);
+
+private:
+	std::unique_ptr<MessageDialog> PALCreateMessageDialog(const Window& owner, std::string dialogTitle, std::string title,
+		std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons);
 };

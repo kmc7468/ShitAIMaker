@@ -137,7 +137,7 @@ const MenuItem& Menu::GetItem(std::size_t index) const noexcept {
 MenuItem& Menu::GetItem(std::size_t index) noexcept {
 	return m_Items[index].Get();
 }
-std::size_t Menu::GetItemsCount() const noexcept {
+std::size_t Menu::GetItemCount() const noexcept {
 	return m_Items.size();
 }
 MenuItem& Menu::AddItem(MenuItemRef&& item) {
@@ -211,7 +211,7 @@ const MenuItem& DropDownMenuItem::GetSubItem(std::size_t index) const noexcept {
 MenuItem& DropDownMenuItem::GetSubItem(std::size_t index) noexcept {
 	return m_SubItems[index].Get();
 }
-std::size_t DropDownMenuItem::GetSubItemsCount() const noexcept {
+std::size_t DropDownMenuItem::GetSubItemCount() const noexcept {
 	return m_SubItems.size();
 }
 MenuItem& DropDownMenuItem::AddSubItem(MenuItemRef&& subItem) {
@@ -231,6 +231,8 @@ DropDownMenuItemRef::DropDownMenuItemRef(std::string string)
 	: UniqueRef(PALCreateDropDownMenuItem(std::move(string))) {}
 
 void PaintableEventHandler::OnPaint(Control&, Graphics&) {}
+
+void WindowEventHandler::OnClose(Window&, bool&) {}
 
 Window::Window() noexcept {}
 
@@ -271,6 +273,10 @@ Menu& Window::SetMenu(MenuRef&& menu) {
 	PALSetMenu(movedMenu);
 
 	return movedMenu;
+}
+
+void Window::Close() {
+	PALClose();
 }
 
 WindowRef::WindowRef(std::unique_ptr<WindowEventHandler>&& eventHandler)
@@ -420,3 +426,64 @@ int Graphics::GetHeight() const {
 RenderingContext2DRef Graphics::GetContext2D() {
 	return PALGetContext2D(*m_Device);
 }
+
+Dialog::Dialog(const Window& owner) noexcept
+	: m_Owner(&owner) {}
+
+bool Dialog::HasOwner() const noexcept {
+	return m_Owner != nullptr;
+}
+const Window& Dialog::GetOwner() const noexcept {
+	return *m_Owner;
+}
+bool Dialog::HasResult() const noexcept {
+	return m_Result.has_value();
+}
+const std::any& Dialog::GetResult() const noexcept {
+	return *m_Result;
+}
+std::any Dialog::GetResult() {
+	const std::any result = std::move(*m_Result);
+
+	m_Result = std::nullopt;
+
+	return result;
+}
+
+void Dialog::SetResult(std::any newResult) noexcept {
+	m_Result.emplace(std::move(newResult));
+}
+
+MessageDialog::MessageDialog(std::string dialogTitle, std::string title, std::string message, Icon icon,
+	Button buttons) noexcept
+	: m_DialogTitle(std::move(dialogTitle)), m_Title(std::move(title)), m_Message(std::move(message)), m_Icon(icon),
+	m_Buttons(buttons) {}
+
+std::string_view MessageDialog::GetDialogTitle() const noexcept {
+	return m_DialogTitle;
+}
+std::string_view MessageDialog::GetTitle() const noexcept {
+	return m_Title;
+}
+std::string_view MessageDialog::GetMessage() const noexcept {
+	return m_Message;
+}
+MessageDialog::Icon MessageDialog::GetIcon() const noexcept {
+	return m_Icon;
+}
+MessageDialog::Button MessageDialog::GetButtons() const noexcept {
+	return m_Buttons;
+}
+
+void MessageDialog::Show() {
+	SetResult(PALShow());
+}
+
+MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button rhs) noexcept {
+	return static_cast<MessageDialog::Button>(static_cast<int>(lhs) | static_cast<int>(rhs));
+}
+
+MessageDialogRef::MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title, std::string message,
+	MessageDialog::Icon icon, MessageDialog::Button buttons)
+	: UniqueRef(PALCreateMessageDialog(owner, std::move(dialogTitle), std::move(title), std::move(message),
+		icon, buttons)) {}

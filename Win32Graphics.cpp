@@ -1,10 +1,13 @@
 #ifdef _WIN32
 #include "PALGraphics.hpp"
 
+#include "Win32String.hpp"
+
 #include <cassert>
 #include <stdexcept>
 #include <Windows.h>
 
+#include <CommCtrl.h>
 #include <gdiplus.h>
 
 #define WM_REFLECT WM_USER + 0x1C00
@@ -27,6 +30,8 @@ namespace {
 
 		if (Gdiplus::GdiplusStartup(&g_GdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
 			throw std::runtime_error("Failed to start up GDI+");
+
+		InitCommonControls();
 	}
 	void FinalizeGdiplus() {
 		Gdiplus::GdiplusShutdown(g_GdiplusToken);
@@ -218,12 +223,6 @@ private:
 protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (message) {
-		case WM_COMMAND:
-			if (lParam != 0)
-				return SendMessage(reinterpret_cast<HWND>(lParam), WM_REFLECT + message, wParam, lParam);
-
-			break;
-
 		case WM_DESTROY:
 			GetEventHandler().OnCreate(*this);
 
@@ -249,6 +248,8 @@ Win32Control::~Win32Control() {
 	DestroyWindow(Handle);
 }
 
+class Win32MenuItem;
+
 class Win32Menu : public Menu {
 public:
 	HMENU Handle = nullptr;
@@ -271,6 +272,9 @@ protected:
 	virtual void* PALGetHandle() noexcept override {
 		return Handle;
 	}
+
+public:
+	Win32MenuItem& FindMenuItem(UINT_PTR menuItemId);
 };
 
 std::unique_ptr<Menu> MenuRef::PALCreateMenu() {
@@ -282,12 +286,13 @@ private:
 	static inline UINT_PTR m_IdCount = 0;
 
 public:
+	UINT_PTR Id = 0;
+
 	std::optional<std::string> String;
 	std::optional<HMENU> PopupMenu;
 
 private:
 	std::size_t m_Index = 0;
-	UINT_PTR m_Id = 0;
 
 public:
 	Win32MenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler) noexcept
@@ -317,14 +322,14 @@ protected:
 			}
 		}
 
-		dynamic_cast<Win32MenuItem&>(subItem).AddItemToParent(*PopupMenu, GetSubItemsCount() - 1);
+		dynamic_cast<Win32MenuItem&>(subItem).AddItemToParent(*PopupMenu, GetSubItemCount() - 1);
 	}
 
 public:
 	void AddItemToParent(HMENU parent, std::size_t index, bool isModify = false) {
 		const UINT flag = (String ? MF_STRING : 0) | (PopupMenu ? MF_POPUP : 0);
 		const UINT_PTR itemId = PopupMenu ?
-			reinterpret_cast<UINT_PTR>(*PopupMenu) : (isModify ? m_Id : (m_Id = m_IdCount++));
+			reinterpret_cast<UINT_PTR>(*PopupMenu) : (isModify ? Id : (Id = m_IdCount++));
 		const LPCSTR item = String ? String->data() : nullptr;
 
 		if (isModify) {
@@ -339,6 +344,19 @@ public:
 
 			m_Index = index;
 		}
+	}
+	Win32MenuItem* FindMenuItem(UINT_PTR menuItemId) noexcept {
+		if (menuItemId == Id) return this;
+
+		const std::size_t subItemCount = GetSubItemCount();
+
+		for (std::size_t i = 0; i < subItemCount; ++i) {
+			Win32MenuItem* const result = dynamic_cast<Win32MenuItem&>(GetSubItem(i)).FindMenuItem(menuItemId);
+
+			if (result) return result;
+		}
+
+		return nullptr;
 	}
 
 private:
@@ -367,7 +385,19 @@ std::unique_ptr<DropDownMenuItem> DropDownMenuItemRef::PALCreateDropDownMenuItem
 }
 
 void Win32Menu::PALAddItem(MenuItem& item) {
-	dynamic_cast<Win32MenuItem&>(item).AddItemToParent(Handle, GetItemsCount() - 1);
+	dynamic_cast<Win32MenuItem&>(item).AddItemToParent(Handle, GetItemCount() - 1);
+}
+
+Win32MenuItem& Win32Menu::FindMenuItem(UINT_PTR menuItemId) {
+	const std::size_t itemCount = GetItemCount();
+
+	for (std::size_t i = 0; i < itemCount; ++i) {
+		Win32MenuItem* const result = dynamic_cast<Win32MenuItem&>(GetItem(i)).FindMenuItem(menuItemId);
+
+		if (result) return *result;
+	}
+
+	throw std::runtime_error("Failed to find the menu item");
 }
 
 namespace {
@@ -422,9 +452,34 @@ protected:
 		}
 	}
 
+	virtual void PALClose() override {
+		if (Handle) {
+			CreateParams.Location = PALGetLocation();
+			CreateParams.Size = PALGetSize();
+			CreateParams.WindowName = PALGetText();
+
+			if (HasMenu()) {
+				CreateParams.Menu = dynamic_cast<Win32Menu&>(GetMenu()).Handle;
+			}
+
+			DestroyWindow(Handle);
+		}
+	}
+
 protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
 		switch (message) {
+		case WM_COMMAND:
+			if (lParam == 0 && HIWORD(wParam) == 0) {
+				Win32Menu& menu = dynamic_cast<Win32Menu&>(GetMenu());
+				Win32MenuItem& menuItem = menu.FindMenuItem(LOWORD(wParam));
+
+				menuItem.GetEventHandler().OnClick(menuItem);
+			} else if (lParam != 0)
+				return SendMessage(reinterpret_cast<HWND>(lParam), WM_REFLECT + message, wParam, lParam);
+
+			break;
+
 		case WM_PAINT:
 			WmPaint();
 
@@ -439,17 +494,24 @@ protected:
 			return 0;
 		}
 
-		case WM_CLOSE:
-			DestroyWindow(Handle);
+		case WM_CLOSE: {
+			bool cancel = false;
+
+			dynamic_cast<WindowEventHandler&>(GetEventHandler()).OnClose(*this, cancel);
+
+			if (!cancel) {
+				DestroyWindow(Handle);
+			}
 
 			return 0;
+		}
 
 		case WM_NCDESTROY:
 			if (IsMainWindow) {
 				PostQuitMessage(0);
 			}
 
-			break;
+			return 0;
 		}
 
 		return Win32Control::Callback(message, wParam, lParam);
@@ -618,4 +680,88 @@ void Win32Window::WmPaint() {
 
 Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceContext)
 	: RenderingContext2D(graphics), m_Graphics(deviceContext) {}
+
+#undef GetMessage
+
+class Win32MessageDialog final : public MessageDialog {
+public:
+	Win32MessageDialog(const Window& owner, std::string dialogTitle, std::string title, std::string message,
+		Icon icon, Button buttons)
+		: Dialog(owner), MessageDialog(std::move(dialogTitle), std::move(title), std::move(message), icon, buttons) {}
+	Win32MessageDialog(const Win32MessageDialog&) = delete;
+	virtual ~Win32MessageDialog() override = default;
+
+public:
+	Win32MessageDialog& operator=(const Win32MessageDialog&) = delete;
+
+public:
+	virtual Button PALShow() override {
+		const Button buttons = GetButtons();
+		TASKDIALOG_COMMON_BUTTON_FLAGS buttonsForApi = 0;
+
+		if (buttons & Button::Ok) {
+			buttonsForApi |= TDCBF_OK_BUTTON;
+		}
+		if (buttons & Button::Yes) {
+			buttonsForApi |= TDCBF_YES_BUTTON;
+		}
+		if (buttons & Button::No) {
+			buttonsForApi |= TDCBF_NO_BUTTON;
+		}
+		if (buttons & Button::Cancel) {
+			buttonsForApi |= TDCBF_CANCEL_BUTTON;
+		}
+		if (buttons & Button::Retry) {
+			buttonsForApi |= TDCBF_RETRY_BUTTON;
+		}
+		if (buttons & Button::Close) {
+			buttonsForApi |= TDCBF_CLOSE_BUTTON;
+		}
+
+		const Icon icon = GetIcon();
+		PCWSTR iconForApi = nullptr;
+
+		switch (icon) {
+		case Icon::None: break;
+
+		case Icon::Information:
+			iconForApi = TD_INFORMATION_ICON;
+			break;
+
+		case Icon::Warning:
+			iconForApi = TD_WARNING_ICON;
+			break;
+
+		case Icon::Error:
+			iconForApi = TD_ERROR_ICON;
+			break;
+
+		default:
+			assert(false);
+			break;
+		}
+
+		int button;
+		const HRESULT result = TaskDialog(dynamic_cast<const Win32Window&>(GetOwner()).Handle, g_Instance,
+			EncodeToWideCharString(std::string(GetDialogTitle()), CP_ACP).data(),
+			EncodeToWideCharString(std::string(GetTitle()), CP_ACP).data(),
+			EncodeToWideCharString(std::string(GetMessage()), CP_ACP).data(), buttonsForApi, iconForApi, &button);
+		if (result != S_OK) throw std::runtime_error("Failed to show a message dialog");
+
+		switch (button) {
+		case IDOK: return Button::Ok;
+		case IDYES: return Button::Yes;
+		case IDNO: return Button::No;
+		case IDCANCEL: return Button::Cancel;
+		case IDRETRY: return Button::Retry;
+		default: return Button::Cancel;
+		}
+	}
+};
+
+std::unique_ptr<MessageDialog> MessageDialogRef::PALCreateMessageDialog(const Window& owner, std::string dialogTitle,
+	std::string title, std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons) {
+	return std::make_unique<Win32MessageDialog>(owner, std::move(dialogTitle), std::move(title), std::move(message),
+		icon, buttons);
+}
 #endif
