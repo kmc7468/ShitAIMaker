@@ -15,11 +15,9 @@ void FunctionalMenuItemEventHandler::OnClick(MenuItem& menuItem) {
 	}
 }
 
-MainWindowHandler::MainWindowHandler() {
-	m_Project->SetName("제목 없음");
-}
-
 void MainWindowHandler::OnCreate(Control& control) {
+	CreateNewProject();
+
 	m_Window = &dynamic_cast<Window&>(control);
 
 	m_Window->SetMenu(CreateMenu());
@@ -27,14 +25,14 @@ void MainWindowHandler::OnCreate(Control& control) {
 }
 void MainWindowHandler::OnClose(Window&, bool& cancel) {
 	switch (AskDiscardChanges()) {
-	case MessageDialog::Yes:
+	case DialogResult::Yes:
 		SaveProject();
 		break;
 
-	case MessageDialog::No:
+	case DialogResult::No:
 		break;
 
-	case MessageDialog::Cancel:
+	case DialogResult::Cancel:
 		cancel = true;
 		break;
 	}
@@ -47,7 +45,19 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 	file->AddSubItem(MenuItemRef("새 프로젝트", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			switch (AskDiscardChanges()) {
+			case DialogResult::Yes:
+				SaveProject();
+				break;
+
+			case DialogResult::No:
+				break;
+
+			case DialogResult::Cancel:
+				return;
+			}
+
+			CreateNewProject();
 		})));
 	file->AddSubItem(MenuItemRef("프로젝트 열기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -62,14 +72,14 @@ MenuRef MainWindowHandler::CreateMenu() {
 	file->AddSubItem(MenuItemRef("종료", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			switch (AskDiscardChanges()) {
-			case MessageDialog::Yes:
+			case DialogResult::Yes:
 				SaveProject();
 				break;
 
-			case MessageDialog::No:
+			case DialogResult::No:
 				break;
 
-			case MessageDialog::Cancel:
+			case DialogResult::Cancel:
 				return;
 			}
 
@@ -136,15 +146,20 @@ void MainWindowHandler::UpdateText() {
 	m_Window->SetText(m_IsSaved ? newText : '*' + newText);
 }
 
-MessageDialog::Button MainWindowHandler::AskDiscardChanges() {
-	if (m_IsSaved) return MessageDialog::No;
+DialogResult MainWindowHandler::AskDiscardChanges() {
+	if (m_IsSaved) return DialogResult::No;
 
 	MessageDialogRef dialog(*m_Window, SAM_APPNAME, "저장되지 않은 변경 사항이 있습니다",
 		"저장되지 않은 변경 사항은 모두 삭제됩니다. 변경 사항을 저장할까요?",
 		MessageDialog::Warning, MessageDialog::Yes | MessageDialog::No | MessageDialog::Cancel);
-	dialog->Show();
 
-	return std::any_cast<MessageDialog::Button>(dialog->GetResult());
+	return dialog->Show();
+}
+void MainWindowHandler::CreateNewProject() {
+	m_Project = std::make_unique<Project>();
+	m_Project->SetName("제목 없음");
+
+	m_IsSaved = true;
 }
 void MainWindowHandler::SaveProject() {
 	// TODO

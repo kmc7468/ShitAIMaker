@@ -1,6 +1,5 @@
 #pragma once
 
-#include <any>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -664,14 +663,22 @@ public:
 	using UniqueRef::UniqueRef;
 };
 
+enum class DialogResult {
+	Ok,
+	Yes,
+	No,
+	Cancel,
+	Retry,
+};
+
 class Dialog {
 private:
 	const Window* m_Owner = nullptr;
-	std::optional<std::any> m_Result;
+	std::string m_DialogTitle;
 
 public:
-	Dialog() noexcept = default;
-	explicit Dialog(const Window& owner) noexcept;
+	explicit Dialog(std::string dialogTitle) noexcept;
+	Dialog(const Window& owner, std::string dialogTitle) noexcept;
 	Dialog(const Dialog&) = delete;
 	virtual ~Dialog() = default;
 
@@ -681,15 +688,10 @@ public:
 public:
 	bool HasOwner() const noexcept;
 	const Window& GetOwner() const noexcept;
-	bool HasResult() const noexcept;
-	const std::any& GetResult() const noexcept;
-	std::any GetResult();
-
-protected:
-	void SetResult(std::any newResult) noexcept;
+	std::string_view GetDialogTitle() const noexcept;
 
 public:
-	virtual void Show() = 0;
+	virtual DialogResult Show() = 0;
 };
 
 class MessageDialog : public virtual Dialog {
@@ -711,14 +713,12 @@ public:
 	};
 
 private:
-	std::string m_DialogTitle;
 	std::string m_Title, m_Message;
 	Icon m_Icon;
 	Button m_Buttons;
 
 public:
-	MessageDialog(std::string dialogTitle, std::string title, std::string message, Icon icon = None,
-		Button buttons = Ok) noexcept;
+	MessageDialog(std::string title, std::string message, Icon icon = None, Button buttons = Ok) noexcept;
 	MessageDialog(const MessageDialog&) = delete;
 	virtual ~MessageDialog() override = default;
 
@@ -726,17 +726,16 @@ public:
 	MessageDialog& operator=(const MessageDialog&) = delete;
 
 public:
-	std::string_view GetDialogTitle() const noexcept;
 	std::string_view GetTitle() const noexcept;
 	std::string_view GetMessage() const noexcept;
 	Icon GetIcon() const noexcept;
 	Button GetButtons() const noexcept;
 
 public:
-	virtual void Show() override;
+	virtual DialogResult Show() override;
 
 protected:
-	virtual Button PALShow() = 0;
+	virtual DialogResult PALShow() = 0;
 };
 
 MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button rhs) noexcept;

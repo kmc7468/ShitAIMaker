@@ -432,8 +432,10 @@ RenderingContext2DRef Graphics::GetContext2D() {
 	return PALGetContext2D(*m_Device);
 }
 
-Dialog::Dialog(const Window& owner) noexcept
-	: m_Owner(&owner) {}
+Dialog::Dialog(std::string dialogTitle) noexcept
+	: m_DialogTitle(std::move(dialogTitle)) {}
+Dialog::Dialog(const Window& owner, std::string dialogTitle) noexcept
+	: m_Owner(&owner), m_DialogTitle(std::move(dialogTitle)) {}
 
 bool Dialog::HasOwner() const noexcept {
 	return m_Owner != nullptr;
@@ -441,32 +443,13 @@ bool Dialog::HasOwner() const noexcept {
 const Window& Dialog::GetOwner() const noexcept {
 	return *m_Owner;
 }
-bool Dialog::HasResult() const noexcept {
-	return m_Result.has_value();
-}
-const std::any& Dialog::GetResult() const noexcept {
-	return *m_Result;
-}
-std::any Dialog::GetResult() {
-	const std::any result = std::move(*m_Result);
-
-	m_Result = std::nullopt;
-
-	return result;
-}
-
-void Dialog::SetResult(std::any newResult) noexcept {
-	m_Result.emplace(std::move(newResult));
-}
-
-MessageDialog::MessageDialog(std::string dialogTitle, std::string title, std::string message, Icon icon,
-	Button buttons) noexcept
-	: m_DialogTitle(std::move(dialogTitle)), m_Title(std::move(title)), m_Message(std::move(message)), m_Icon(icon),
-	m_Buttons(buttons) {}
-
-std::string_view MessageDialog::GetDialogTitle() const noexcept {
+std::string_view Dialog::GetDialogTitle() const noexcept {
 	return m_DialogTitle;
 }
+
+MessageDialog::MessageDialog(std::string title, std::string message, Icon icon, Button buttons) noexcept
+	: m_Title(std::move(title)), m_Message(std::move(message)), m_Icon(icon), m_Buttons(buttons) {}
+
 std::string_view MessageDialog::GetTitle() const noexcept {
 	return m_Title;
 }
@@ -480,8 +463,8 @@ MessageDialog::Button MessageDialog::GetButtons() const noexcept {
 	return m_Buttons;
 }
 
-void MessageDialog::Show() {
-	SetResult(PALShow());
+DialogResult MessageDialog::Show() {
+	return PALShow();
 }
 
 MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button rhs) noexcept {

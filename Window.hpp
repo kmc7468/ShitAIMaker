@@ -26,11 +26,11 @@ class MainWindowHandler final : public WindowEventHandler {
 private:
 	Window* m_Window = nullptr;
 
-	std::unique_ptr<Project> m_Project = std::make_unique<Project>();
+	std::unique_ptr<Project> m_Project;
 	bool m_IsSaved = true;
 
 public:
-	MainWindowHandler();
+	MainWindowHandler() noexcept = default;
 	MainWindowHandler(const MainWindowHandler&) = delete;
 	virtual ~MainWindowHandler() override = default;
 
@@ -43,6 +43,7 @@ private:
 	void UpdateText();
 
 private:
-	MessageDialog::Button AskDiscardChanges();
+	DialogResult AskDiscardChanges();
+	void CreateNewProject();
 	void SaveProject();
 };

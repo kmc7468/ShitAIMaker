@@ -332,7 +332,7 @@ public:
 		const LPCSTR item = GetMenuItem();
 
 		if (itemId == 0) {
-			itemId = Id = m_IdCount++;
+			itemId = Id = ++m_IdCount;
 		}
 
 		if (isModify) {
@@ -721,7 +721,7 @@ class Win32MessageDialog final : public MessageDialog {
 public:
 	Win32MessageDialog(const Window& owner, std::string dialogTitle, std::string title, std::string message,
 		Icon icon, Button buttons)
-		: Dialog(owner), MessageDialog(std::move(dialogTitle), std::move(title), std::move(message), icon, buttons) {}
+		: Dialog(owner, std::move(dialogTitle)), MessageDialog(std::move(title), std::move(message), icon, buttons) {}
 	Win32MessageDialog(const Win32MessageDialog&) = delete;
 	virtual ~Win32MessageDialog() override = default;
 
@@ -729,7 +729,7 @@ public:
 	Win32MessageDialog& operator=(const Win32MessageDialog&) = delete;
 
 public:
-	virtual Button PALShow() override {
+	virtual DialogResult PALShow() override {
 		const Button buttons = GetButtons();
 		TASKDIALOG_COMMON_BUTTON_FLAGS buttonsForApi = 0;
 
@@ -783,12 +783,12 @@ public:
 		if (result != S_OK) throw std::runtime_error("Failed to show a message dialog");
 
 		switch (button) {
-		case IDOK: return Button::Ok;
-		case IDYES: return Button::Yes;
-		case IDNO: return Button::No;
-		case IDCANCEL: return Button::Cancel;
-		case IDRETRY: return Button::Retry;
-		default: return Button::Cancel;
+		case IDOK: return DialogResult::Ok;
+		case IDYES: return DialogResult::Yes;
+		case IDNO: return DialogResult::No;
+		case IDCANCEL: return DialogResult::Cancel;
+		case IDRETRY: return DialogResult::Retry;
+		default: return DialogResult::Cancel;
 		}
 	}
 };
