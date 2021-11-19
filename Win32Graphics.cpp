@@ -327,10 +327,13 @@ protected:
 
 public:
 	void AddItemToParent(HMENU parent, std::size_t index, bool isModify = false) {
-		const UINT flag = (String ? MF_STRING : 0) | (PopupMenu ? MF_POPUP : 0);
-		const UINT_PTR itemId = PopupMenu ?
-			reinterpret_cast<UINT_PTR>(*PopupMenu) : (isModify ? Id : (Id = m_IdCount++));
-		const LPCSTR item = String ? String->data() : nullptr;
+		const UINT flag = GetMenuFlag();
+		UINT_PTR itemId = GetMenuItemId();
+		const LPCSTR item = GetMenuItem();
+
+		if (itemId == 0) {
+			itemId = Id = m_IdCount++;
+		}
 
 		if (isModify) {
 			BOOL result = ModifyMenuA(parent, static_cast<UINT>(index), flag | MF_BYPOSITION, itemId, item);
@@ -357,6 +360,17 @@ public:
 		}
 
 		return nullptr;
+	}
+
+protected:
+	virtual UINT GetMenuFlag() noexcept {
+		return (String ? MF_STRING : 0) | (PopupMenu ? MF_POPUP : 0);
+	}
+	virtual UINT_PTR GetMenuItemId() noexcept {
+		return PopupMenu ? reinterpret_cast<UINT_PTR>(*PopupMenu) : 0;
+	}
+	virtual LPCSTR GetMenuItem() noexcept {
+		return String ? String->data() : nullptr;
 	}
 
 private:
@@ -398,6 +412,26 @@ Win32MenuItem& Win32Menu::FindMenuItem(UINT_PTR menuItemId) {
 	}
 
 	throw std::runtime_error("Failed to find the menu item");
+}
+
+class Win32MenuItemSeparator final : public MenuItemSeparator, public Win32MenuItem {
+public:
+	Win32MenuItemSeparator()
+		: MenuItem(std::make_unique<MenuItemEventHandler>()), Win32MenuItem("", nullptr) {}
+	Win32MenuItemSeparator(const Win32MenuItemSeparator&) = delete;
+	virtual ~Win32MenuItemSeparator() override = default;
+
+public:
+	Win32MenuItemSeparator& operator=(const Win32MenuItemSeparator&) = delete;
+
+protected:
+	virtual UINT GetMenuFlag() noexcept override {
+		return MF_SEPARATOR;
+	}
+};
+
+std::unique_ptr<MenuItemSeparator> MenuItemSeparatorRef::PALCreateMenuItemSeparator() {
+	return std::make_unique<Win32MenuItemSeparator>();
 }
 
 namespace {

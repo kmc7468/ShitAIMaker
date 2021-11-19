@@ -230,6 +230,11 @@ MenuItem& DropDownMenuItem::AddSubItem(MenuItemRef&& subItem) {
 DropDownMenuItemRef::DropDownMenuItemRef(std::string string)
 	: UniqueRef(PALCreateDropDownMenuItem(std::move(string))) {}
 
+MenuItemSeparator::MenuItemSeparator() noexcept {}
+
+MenuItemSeparatorRef::MenuItemSeparatorRef()
+	: UniqueRef(PALCreateMenuItemSeparator()) {}
+
 void PaintableEventHandler::OnPaint(Control&, Graphics&) {}
 
 void WindowEventHandler::OnClose(Window&, bool&) {}
@@ -483,7 +488,7 @@ MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button
 	return static_cast<MessageDialog::Button>(static_cast<int>(lhs) | static_cast<int>(rhs));
 }
 
-MessageDialogRef::MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title, std::string message,
-	MessageDialog::Icon icon, MessageDialog::Button buttons)
-	: UniqueRef(PALCreateMessageDialog(owner, std::move(dialogTitle), std::move(title), std::move(message),
-		icon, buttons)) {}
+MessageDialogRef::MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title,
+	std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons)
+	: UniqueRef(PALCreateMessageDialog(owner, std::move(dialogTitle), std::move(title),
+		std::move(message), icon, buttons)) {}

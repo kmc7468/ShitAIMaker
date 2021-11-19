@@ -313,7 +313,7 @@ public:
 	virtual ~DropDownMenuItem() override = default;
 
 public:
-	MenuItem& operator=(const MenuItem&) = delete;
+	DropDownMenuItem& operator=(const DropDownMenuItem&) = delete;
 
 public:
 	const MenuItem& GetSubItem(std::size_t index) const noexcept;
@@ -333,6 +333,26 @@ public:
 
 private:
 	static std::unique_ptr<DropDownMenuItem> PALCreateDropDownMenuItem(std::string string);
+};
+
+class MenuItemSeparator : public virtual MenuItem {
+public:
+	MenuItemSeparator() noexcept;
+	MenuItemSeparator(const MenuItemSeparator&) = delete;
+	virtual ~MenuItemSeparator() override = default;
+
+public:
+	MenuItemSeparator& operator=(const MenuItemSeparator&) = delete;
+};
+
+class MenuItemSeparatorRef final : public UniqueRef<MenuItemSeparator> {
+public:
+	using UniqueRef::UniqueRef;
+
+	MenuItemSeparatorRef();
+
+private:
+	static std::unique_ptr<MenuItemSeparator> PALCreateMenuItemSeparator();
 };
 
 class Graphics;
@@ -729,6 +749,6 @@ public:
 		MessageDialog::Icon icon = MessageDialog::None, MessageDialog::Button buttons = MessageDialog::Ok);
 
 private:
-	std::unique_ptr<MessageDialog> PALCreateMessageDialog(const Window& owner, std::string dialogTitle, std::string title,
-		std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons);
+	std::unique_ptr<MessageDialog> PALCreateMessageDialog(const Window& owner, std::string dialogTitle,
+		std::string title, std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons);
 };
