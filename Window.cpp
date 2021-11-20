@@ -1,6 +1,7 @@
 #include "Window.hpp"
 
 #include "Application.hpp"
+#include "NetworkViewer.hpp"
 #include "Optimizer.hpp"
 
 #include <exception>
@@ -22,6 +23,10 @@ void MainWindowHandler::OnCreate(Control& control) {
 	m_Window->SetMenu(CreateMenu());
 
 	CreateNewProject();
+
+	m_NetworkViewer = &dynamic_cast<Panel&>(m_Window->AddChild(PanelRef(std::make_unique<NetworkViewerHandler>())));
+
+	m_NetworkViewer->Show();
 }
 void MainWindowHandler::OnClose(Window&, bool& cancel) {
 	switch (AskDiscardChanges()) {
@@ -41,9 +46,9 @@ void MainWindowHandler::OnClose(Window&, bool& cancel) {
 MenuRef MainWindowHandler::CreateMenu() {
 	MenuRef menu;
 
-	DropDownMenuItemRef file("파일");
+	DropDownMenuItemRef project("프로젝트");
 
-	file->AddSubItem(MenuItemRef("새 프로젝트", std::make_unique<FunctionalMenuItemEventHandler>(
+	project->AddSubItem(MenuItemRef("새로 만들기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			switch (AskDiscardChanges()) {
 			case DialogResult::Yes:
@@ -59,7 +64,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			CreateNewProject();
 		})));
-	file->AddSubItem(MenuItemRef("프로젝트 열기", std::make_unique<FunctionalMenuItemEventHandler>(
+	project->AddSubItem(MenuItemRef("열기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			switch (AskDiscardChanges()) {
 			case DialogResult::Yes:
@@ -73,7 +78,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 				return;
 			}
 
-			OpenFileDialogRef openFileDialog(*m_Window, "프로젝트 열기");
+			OpenFileDialogRef openFileDialog(*m_Window, "열기");
 
 			openFileDialog->AddFilter("프로젝트 파일(*.samp)", "*.samp");
 			openFileDialog->AddFilter("모든 파일(*.*)", "*.*");
@@ -97,17 +102,19 @@ MenuRef MainWindowHandler::CreateMenu() {
 				dialog->Show();
 			}
 		})));
-	file->AddSubItem(MenuItemRef("프로젝트 저장", std::make_unique<FunctionalMenuItemEventHandler>(
+	project->AddSubItem(MenuItemRef("저장", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			if (!m_IsSaved || m_Project->GetPath().empty()) {
 				SaveProject();
 			}
 		})));
-	file->AddSubItem(MenuItemRef("프로젝트 다른 이름으로 저장", std::make_unique<FunctionalMenuItemEventHandler>(
+	project->AddSubItem(MenuItemRef("다른 이름으로 저장", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			SaveProject(true);
 		})));
-	file->AddSubItem(MenuItemRef("종료", std::make_unique<FunctionalMenuItemEventHandler>(
+
+	project->AddSubItem(MenuItemSeparatorRef());
+	project->AddSubItem(MenuItemRef("끝내기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			switch (AskDiscardChanges()) {
 			case DialogResult::Yes:
@@ -124,34 +131,34 @@ MenuRef MainWindowHandler::CreateMenu() {
 			m_Window->Close();
 		})));
 
-	menu->AddItem(std::move(file));
+	menu->AddItem(std::move(project));
 
-	DropDownMenuItemRef optimizing("네트워크");
+	DropDownMenuItemRef network("네트워크");
 
-	optimizing->AddSubItem(MenuItemRef("빠른 실행", std::make_unique<FunctionalMenuItemEventHandler>(
+	network->AddSubItem(MenuItemRef("빠른 실행", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			// TODO
 		})));
-	optimizing->AddSubItem(MenuItemRef("실행 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
-		[&](MenuItem&) {
-			// TODO
-		})));
-
-	optimizing->AddSubItem(MenuItemSeparatorRef());
-	optimizing->AddSubItem(MenuItemRef("빠른 학습", std::make_unique<FunctionalMenuItemEventHandler>(
-		[&](MenuItem&) {
-			// TODO
-		})));
-	optimizing->AddSubItem(MenuItemRef("학습 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
-		[&](MenuItem&) {
-			// TODO
-		})));
-	optimizing->AddSubItem(MenuItemRef("옵티마이저 설정", std::make_unique<FunctionalMenuItemEventHandler>(
+	network->AddSubItem(MenuItemRef("실행 및 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			// TODO
 		})));
 
-	menu->AddItem(std::move(optimizing));
+	network->AddSubItem(MenuItemSeparatorRef());
+	network->AddSubItem(MenuItemRef("빠른 학습", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			// TODO
+		})));
+	network->AddSubItem(MenuItemRef("학습 및 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			// TODO
+		})));
+	network->AddSubItem(MenuItemRef("옵티마이저 설정", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			// TODO
+		})));
+
+	menu->AddItem(std::move(network));
 
 	DropDownMenuItemRef help("도움말");
 
@@ -203,7 +210,7 @@ void MainWindowHandler::CreateNewProject() {
 }
 bool MainWindowHandler::SaveProject(bool saveAs) {
 	if (saveAs || m_Project->GetPath().empty()) {
-		SaveFileDialogRef saveFileDialog(*m_Window, saveAs ? "프로젝트 다른 이름으로 저장" : "프로젝트 저장");
+		SaveFileDialogRef saveFileDialog(*m_Window, saveAs ? "다른 이름으로 저장" : "저장");
 
 		saveFileDialog->AddFilter("프로젝트 파일(*.samp)", "*.samp");
 		saveFileDialog->AddFilter("모든 파일(*.*)", "*.*");

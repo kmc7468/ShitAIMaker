@@ -24,6 +24,9 @@ namespace {
 
 namespace {
 	ULONG_PTR g_GdiplusToken;
+	
+	PenRef g_DefaultPen(nullptr);
+	BrushRef g_DefaultBrush(nullptr);
 
 	void InitializeGdiplus() {
 		Gdiplus::GdiplusStartupInput gdiplusStartupInput;
@@ -31,9 +34,13 @@ namespace {
 		if (Gdiplus::GdiplusStartup(&g_GdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok)
 			throw std::runtime_error("Failed to start up GDI+");
 
-		InitCommonControls();
+		g_DefaultPen = SolidPenRef(Color::Black, 1);
+		g_DefaultBrush = SolidBrushRef(Color::Black);
 	}
 	void FinalizeGdiplus() {
+		g_DefaultPen = std::shared_ptr<Pen>();
+		g_DefaultBrush = std::shared_ptr<Brush>();
+
 		Gdiplus::GdiplusShutdown(g_GdiplusToken);
 	}
 }
@@ -145,8 +152,7 @@ protected:
 	}
 	virtual void PALSetVisibility(bool newVisibility) override {
 		if (Handle) {
-			const BOOL result = ShowWindow(Handle, newVisibility ? SW_SHOW : SW_HIDE);
-			if (!result) throw std::runtime_error("Failed to set the visibility of a control");
+			ShowWindow(Handle, newVisibility ? SW_SHOW : SW_HIDE);
 		} else {
 			if (newVisibility) {
 				CreateParams.Style |= WS_VISIBLE;
@@ -448,6 +454,8 @@ namespace {
 
 		if (RegisterClassA(&wndClass) == 0)
 			throw std::runtime_error("Failed to register a window class");
+
+		InitCommonControls();
 	}
 }
 
@@ -577,7 +585,7 @@ int PALRunEventLoop(WindowRef* mainWindow) {
 class Win32Button final : public Button, public Win32Control {
 public:
 	Win32Button(std::unique_ptr<ButtonEventHandler>&& eventHandler) noexcept
-		: Control(std::move(eventHandler)), Win32Control("Button", WS_CHILD | BS_PUSHBUTTON) {}
+		: Control(std::move(eventHandler)), Win32Control(WC_BUTTONA, WS_CHILD | BS_PUSHBUTTON) {}
 	Win32Button(const Win32Control&) = delete;
 	virtual ~Win32Button() override = default;
 
@@ -604,6 +612,36 @@ protected:
 
 std::unique_ptr<Button> ButtonRef::PALCreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Button>(std::move(eventHandler));
+}
+
+class Win32Panel final : public Panel, public Win32Control {
+public:
+	Win32Panel(std::unique_ptr<PanelEventHandler>&& eventHandler) noexcept
+		: Control(std::move(eventHandler)), Win32Control("Window", WS_CHILD | BS_PUSHBUTTON) {}
+	Win32Panel(const Win32Panel&) = delete;
+	virtual ~Win32Panel() override = default;
+
+public:
+	Win32Panel& operator=(const Win32Panel&) = delete;
+
+protected:
+	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
+		switch (message) {
+		case WM_PAINT:
+			WmPaint();
+
+			return 0;
+		}
+
+		return Win32Control::Callback(message, wParam, lParam);
+	}
+
+private:
+	void WmPaint();
+};
+
+std::unique_ptr<Panel> PanelRef::PALCreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler) {
+	return std::make_unique<Win32Panel>(std::move(eventHandler));
 }
 
 class Win32Pen final : public SolidPen {
@@ -712,8 +750,18 @@ void Win32Window::WmPaint() {
 	EndPaint(Handle, &ps);
 }
 
+void Win32Panel::WmPaint() {
+	PAINTSTRUCT ps;
+	const HDC dc = BeginPaint(Handle, &ps);
+
+	Win32Graphics graphics(*this, dc);
+
+	dynamic_cast<PanelEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	EndPaint(Handle, &ps);
+}
+
 Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceContext)
-	: RenderingContext2D(graphics), m_Graphics(deviceContext) {}
+	: RenderingContext2D(graphics, g_DefaultPen, g_DefaultBrush), m_Graphics(deviceContext) {}
 
 #undef GetMessage
 

@@ -29,6 +29,8 @@ private:
 	std::unique_ptr<Project> m_Project;
 	bool m_IsSaved = true;
 
+	Panel* m_NetworkViewer = nullptr;
+
 public:
 	MainWindowHandler() noexcept = default;
 	MainWindowHandler(const MainWindowHandler&) = delete;

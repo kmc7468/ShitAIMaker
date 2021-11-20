@@ -322,6 +322,17 @@ std::unique_ptr<Button> ButtonRef::CreateButton(std::unique_ptr<ButtonEventHandl
 	return PALCreateButton(std::move(eventHandler));
 }
 
+Panel::Panel() noexcept {}
+
+PanelRef::PanelRef(std::unique_ptr<PanelEventHandler>&& eventHandler)
+	: UniqueRef(CreatePanel(std::move(eventHandler))) {}
+
+std::unique_ptr<Panel> PanelRef::CreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler) {
+	assert(eventHandler != nullptr);
+
+	return PALCreatePanel(std::move(eventHandler));
+}
+
 const Color Color::Black(0, 0, 0);
 const Color Color::Red(255, 0, 0);
 const Color Color::Green(0, 255, 0);
@@ -376,14 +387,8 @@ Graphics& RenderingContext::GetGraphics() noexcept {
 	return *m_Graphics;
 }
 
-RenderingContext2D::RenderingContext2D(Graphics& graphics)
-	: RenderingContext(graphics), m_Pen(nullptr), m_Brush(nullptr) {
-	static const SolidPenRef blackPen(Color::Black, 1);
-	static const SolidBrushRef blackBrush(Color::Black);
-
-	m_Pen = blackPen;
-	m_Brush = blackBrush;
-}
+RenderingContext2D::RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush)
+	: RenderingContext(graphics), m_Pen(std::move(defaultPen)), m_Brush(std::move(defaultBrush)) {}
 
 const Pen& RenderingContext2D::GetPen() const noexcept {
 	return m_Pen.Get();

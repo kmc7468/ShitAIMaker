@@ -466,6 +466,29 @@ private:
 	static std::unique_ptr<Button> PALCreateButton(std::unique_ptr<ButtonEventHandler>&& eventHandler);
 };
 
+using PanelEventHandler = PaintableEventHandler;
+
+class Panel : public virtual Control {
+public:
+	Panel() noexcept;
+	Panel(const Panel&) = delete;
+	virtual ~Panel() override = default;
+
+public:
+	Panel& operator=(const Panel&) = delete;
+};
+
+class PanelRef final : public UniqueRef<Panel> {
+public:
+	using UniqueRef::UniqueRef;
+
+	explicit PanelRef(std::unique_ptr<PanelEventHandler>&& eventHandler);
+
+private:
+	static std::unique_ptr<Panel> CreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler);
+	static std::unique_ptr<Panel> PALCreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler);
+};
+
 class Color final {
 public:
 	static const Color Black;
@@ -603,7 +626,7 @@ private:
 	BrushRef m_Brush;
 
 public:
-	explicit RenderingContext2D(Graphics& graphics);
+	RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush);
 	RenderingContext2D(const RenderingContext2D&) = delete;
 	virtual ~RenderingContext2D() override = default;
 
