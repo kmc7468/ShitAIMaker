@@ -4,6 +4,7 @@
 #include "Win32String.hpp"
 
 #include <cassert>
+#include <exception>
 #include <stdexcept>
 #include <Windows.h>
 #include <windowsx.h>
@@ -527,6 +528,12 @@ protected:
 		}
 	}
 
+	virtual void PALInvalidate() override {
+		assert(Handle != nullptr);
+
+		InvalidateRect(Handle, nullptr, FALSE);
+	}
+
 	virtual void PALClose() override {
 		if (Handle) {
 			CreateParams.Location = PALGetLocation();
@@ -658,6 +665,13 @@ public:
 	Win32Panel& operator=(const Win32Panel&) = delete;
 
 protected:
+	virtual void PALInvalidate() override {
+		assert(Handle != nullptr);
+
+		InvalidateRect(Handle, nullptr, FALSE);
+	}
+
+protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
 		switch (message) {
 		case WM_PAINT:
@@ -761,6 +775,39 @@ protected:
 	}
 };
 
+namespace {
+	struct DoubleBufferingContext final {
+		HDC OriginalDC;
+		HDC BufferDC;
+		HBITMAP BufferBitmap;
+		HBITMAP OriginalBitmap;
+
+		RECT ClientRectangle;
+	};
+
+	void CreateBufferDC(DoubleBufferingContext& doubleBufferingContext, HDC originalDC,
+		int clientWidth, int clientHeight) {
+		doubleBufferingContext.OriginalDC = originalDC;
+		doubleBufferingContext.BufferDC = CreateCompatibleDC(originalDC);
+		doubleBufferingContext.BufferBitmap =
+			CreateCompatibleBitmap(doubleBufferingContext.OriginalDC, clientWidth, clientHeight);
+		doubleBufferingContext.OriginalBitmap = static_cast<HBITMAP>(
+			SelectObject(doubleBufferingContext.BufferDC, doubleBufferingContext.BufferBitmap));
+
+		doubleBufferingContext.ClientRectangle.right = clientWidth;
+		doubleBufferingContext.ClientRectangle.bottom = clientHeight;
+	}
+	void DeleteBufferDC(DoubleBufferingContext& doubleBufferingContext) {
+		BitBlt(doubleBufferingContext.OriginalDC, 0, 0,
+			doubleBufferingContext.ClientRectangle.right, doubleBufferingContext.ClientRectangle.bottom,
+			doubleBufferingContext.BufferDC, 0, 0, SRCCOPY);
+		SelectObject(doubleBufferingContext.BufferDC, doubleBufferingContext.OriginalBitmap);
+
+		DeleteObject(doubleBufferingContext.BufferBitmap);
+		DeleteDC(doubleBufferingContext.BufferDC);
+	}
+}
+
 class Win32Graphics final : public Graphics {
 public:
 	HDC DeviceContext;
@@ -786,9 +833,24 @@ void Win32Window::WmPaint() {
 	PAINTSTRUCT ps;
 	const HDC dc = BeginPaint(Handle, &ps);
 
-	Win32Graphics graphics(*this, dc);
+	const auto& [clientWidth, clientHeight] = GetClientSize();
+	DoubleBufferingContext ctx{};
 
-	dynamic_cast<WindowEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	CreateBufferDC(ctx, dc, clientWidth, clientHeight);
+	FillRect(ctx.BufferDC, &ctx.ClientRectangle, static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
+
+	Win32Graphics graphics(*this, ctx.BufferDC);
+
+	try {
+		dynamic_cast<WindowEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	} catch (const std::exception&) {
+		DeleteBufferDC(ctx);
+		EndPaint(Handle, &ps);
+
+		throw;
+	}
+
+	DeleteBufferDC(ctx);
 	EndPaint(Handle, &ps);
 }
 
@@ -796,9 +858,24 @@ void Win32Panel::WmPaint() {
 	PAINTSTRUCT ps;
 	const HDC dc = BeginPaint(Handle, &ps);
 
-	Win32Graphics graphics(*this, dc);
+	const auto& [clientWidth, clientHeight] = GetClientSize();
+	DoubleBufferingContext ctx{};
 
-	dynamic_cast<PanelEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	CreateBufferDC(ctx, dc, clientWidth, clientHeight);
+	FillRect(ctx.BufferDC, &ctx.ClientRectangle, static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
+
+	Win32Graphics graphics(*this, ctx.BufferDC);
+
+	try {
+		dynamic_cast<PanelEventHandler&>(GetEventHandler()).OnPaint(*this, graphics);
+	} catch (const std::exception&) {
+		DeleteBufferDC(ctx);
+		EndPaint(Handle, &ps);
+
+		throw;
+	}
+
+	DeleteBufferDC(ctx);
 	EndPaint(Handle, &ps);
 }
 
