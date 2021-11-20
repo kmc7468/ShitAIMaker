@@ -126,10 +126,10 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 
 				ctx->SetPen(SolidPenRef(Color::Black,
 					(SAM_LINEMINWIDTH + width * (SAM_LINEMAXWIDTH - SAM_LINEMINWIDTH)) * SAM_ZOOM));
-				ctx->DrawLine(SAM_MAGNIFY(std::get<0>(layers[i]) + SAM_UNITX(j) + SAM_UNITSIZE),
-					SAM_MAGNIFY(std::get<1>(layers[i]) + SAM_UNITY(j) + SAM_UNITSIZE / 2),
-					SAM_MAGNIFY(std::get<0>(layers[i + 1]) + SAM_UNITX(k)),
-					SAM_MAGNIFY(std::get<1>(layers[i + 1]) + SAM_UNITY(k) + SAM_UNITSIZE / 2));
+				ctx->DrawLine(SAM_MAGNIFY(std::get<0>(layers[i]) + SAM_UNITX(static_cast<int>(j)) + SAM_UNITSIZE),
+					SAM_MAGNIFY(std::get<1>(layers[i]) + SAM_UNITY(static_cast<int>(j)) + SAM_UNITSIZE / 2),
+					SAM_MAGNIFY(std::get<0>(layers[i + 1]) + SAM_UNITX(static_cast<int>(k))),
+					SAM_MAGNIFY(std::get<1>(layers[i + 1]) + SAM_UNITY(static_cast<int>(k)) + SAM_UNITSIZE / 2));
 			}
 		}
 	}

@@ -20,7 +20,7 @@ void EventHandler::OnResize(Control&) {}
 void EventHandler::OnMouseDown(Control&, int, int, MouseButton) {}
 void EventHandler::OnMouseMove(Control&, int, int) {}
 void EventHandler::OnMouseUp(Control&, int, int, MouseButton) {}
-void EventHandler::OnMouseWheel(Control& control, int, int, MouseWheel) {}
+void EventHandler::OnMouseWheel(Control&, int, int, MouseWheel) {}
 
 Control::Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept
 	: m_EventHandler(std::move(eventHandler)) {}
