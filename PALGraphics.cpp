@@ -12,6 +12,16 @@ void FinalizeGraphics() noexcept {
 	PALFinalizeGraphics();
 }
 
+void EventHandler::OnCreate(Control&) {}
+void EventHandler::OnDestroy(Control&) {}
+
+void EventHandler::OnResize(Control&) {}
+
+void EventHandler::OnMouseDown(Control&, int, int, MouseButton) {}
+void EventHandler::OnMouseMove(Control&, int, int) {}
+void EventHandler::OnMouseUp(Control&, int, int, MouseButton) {}
+void EventHandler::OnMouseWheel(Control& control, int, int, MouseWheel) {}
+
 Control::Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept
 	: m_EventHandler(std::move(eventHandler)) {}
 
@@ -120,8 +130,9 @@ void Control::Hide() {
 	SetVisibility(false);
 }
 
-void EventHandler::OnCreate(Control&) {}
-void EventHandler::OnDestroy(Control&) {}
+void Control::Invalidate() {
+	PALInvalidate();
+}
 
 bool Menu::HasParent() const noexcept {
 	return m_Parent != nullptr;
@@ -419,12 +430,30 @@ void RenderingContext2D::DrawRectangle(int x, int y, int width, int height) {
 void RenderingContext2D::DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
 	DrawRectangle(location.first, location.second, size.first, size.second);
 }
+void RenderingContext2D::DrawEllipse(int x, int y, int width, int height) {
+	PALDrawEllipse(x, y, width, height);
+}
+void RenderingContext2D::DrawEllipse(const std::pair<int, int>& location, const std::pair<int, int>& size) {
+	DrawEllipse(location.first, location.second, size.first, size.second);
+}
+void RenderingContext2D::DrawLine(int x1, int y1, int x2, int y2) {
+	PALDrawLine(x1, y1, x2, y2);
+}
+void RenderingContext2D::DrawLine(const std::pair<int, int>& from, const std::pair<int, int>& to) {
+	DrawLine(from.first, from.second, to.first, to.second);
+}
 
 void RenderingContext2D::FillRectangle(int x, int y, int width, int height) {
 	PALFillRectangle(x, y, width, height);
 }
 void RenderingContext2D::FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size) {
 	FillRectangle(location.first, location.second, size.first, size.second);
+}
+void RenderingContext2D::FillEllipse(int x, int y, int width, int height) {
+	PALFillEllipse(x, y, width, height);
+}
+void RenderingContext2D::FillEllipse(const std::pair<int, int>& location, const std::pair<int, int>& size) {
+	FillEllipse(location.first, location.second, size.first, size.second);
 }
 
 Graphics::Graphics(Control& control) noexcept

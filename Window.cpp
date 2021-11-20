@@ -24,8 +24,10 @@ void MainWindowHandler::OnCreate(Control& control) {
 
 	CreateNewProject();
 
-	m_NetworkViewer = &dynamic_cast<Panel&>(m_Window->AddChild(PanelRef(std::make_unique<NetworkViewerHandler>())));
+	m_NetworkViewer = &dynamic_cast<Panel&>(m_Window->AddChild(PanelRef(
+		std::make_unique<NetworkViewerHandler>(m_Project->GetNetwork()))));
 
+	m_NetworkViewer->SetSize(m_Window->GetClientSize());
 	m_NetworkViewer->Show();
 }
 void MainWindowHandler::OnClose(Window&, bool& cancel) {
@@ -40,6 +42,12 @@ void MainWindowHandler::OnClose(Window&, bool& cancel) {
 	case DialogResult::Cancel:
 		cancel = true;
 		break;
+	}
+}
+
+void MainWindowHandler::OnResize(Control&) {
+	if (m_NetworkViewer) {
+		m_NetworkViewer->SetSize(m_Window->GetClientSize());
 	}
 }
 
@@ -94,6 +102,9 @@ MenuRef MainWindowHandler::CreateMenu() {
 				m_IsSaved = true;
 
 				UpdateText();
+
+				dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
+					SetTargetNetwork(m_Project->GetNetwork());
 			} catch (const std::exception& exception) {
 				MessageDialogRef dialog(*m_Window, SAM_APPNAME, "프로젝트를 열지 못했습니다",
 					std::string("올바른 ShitAIMaker 프로젝트 파일인지 확인해 보세요. (") + exception.what() + ")",
@@ -207,6 +218,11 @@ void MainWindowHandler::CreateNewProject() {
 	m_IsSaved = true;
 
 	UpdateText();
+
+	if (m_NetworkViewer) {
+		dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
+			SetTargetNetwork(m_Project->GetNetwork());
+	}
 }
 bool MainWindowHandler::SaveProject(bool saveAs) {
 	if (saveAs || m_Project->GetPath().empty()) {

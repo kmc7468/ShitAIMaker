@@ -40,6 +40,8 @@ public:
 	virtual void OnCreate(Control& control) override;
 	virtual void OnClose(Window& window, bool& cancel) override;
 
+	virtual void OnResize(Control& control) override;
+
 private:
 	MenuRef CreateMenu();
 	void UpdateText();

@@ -4,9 +4,7 @@
 
 #include <memory>
 
-int Main() {
-	InitializeGraphics();
-
+static int Run() {
 	WindowRef mainWindow(std::make_unique<MainWindowHandler>());
 
 	mainWindow->SetSize(640, 480);
@@ -14,7 +12,13 @@ int Main() {
 
 	mainWindow->Show();
 
-	const int result = RunEventLoop(mainWindow);
+	return RunEventLoop(mainWindow);
+}
+
+int Main() {
+	InitializeGraphics();
+
+	const int result = Run();
 
 	FinalizeGraphics();
 

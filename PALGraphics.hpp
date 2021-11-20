@@ -117,8 +117,38 @@ void FinalizeGraphics() noexcept;
 void PALInitializeGraphics();
 void PALFinalizeGraphics() noexcept;
 
+class Control;
 class ControlRef;
-class EventHandler;
+
+enum class MouseButton {
+	Left,
+};
+
+enum class MouseWheel {
+	Forward,
+	Backward,
+};
+
+class EventHandler {
+public:
+	EventHandler() noexcept = default;
+	EventHandler(const EventHandler&) = delete;
+	virtual ~EventHandler() = default;
+
+public:
+	EventHandler& operator=(const EventHandler&) = delete;
+
+public:
+	virtual void OnCreate(Control& control);
+	virtual void OnDestroy(Control& control);
+
+	virtual void OnResize(Control& control);
+
+	virtual void OnMouseDown(Control& control, int x, int y, MouseButton mouseButton);
+	virtual void OnMouseMove(Control& control, int x, int y);
+	virtual void OnMouseUp(Control& control, int x, int y, MouseButton mouseButton);
+	virtual void OnMouseWheel(Control& control, int x, int y, MouseWheel mouseWheel);
+};
 
 class Control {
 private:
@@ -168,6 +198,8 @@ public:
 	void Show();
 	void Hide();
 
+	void Invalidate();
+
 protected:
 	virtual void PALAddChild(Control& child) = 0;
 	virtual void* PALGetHandle() noexcept = 0;
@@ -181,20 +213,8 @@ protected:
 	virtual void PALSetVisibility(bool newVisibility) = 0;
 	virtual std::string PALGetText() const = 0;
 	virtual void PALSetText(const std::string& newText) = 0;
-};
 
-class EventHandler {
-public:
-	EventHandler() noexcept = default;
-	EventHandler(const EventHandler&) = delete;
-	virtual ~EventHandler() = default;
-
-public:
-	EventHandler& operator=(const EventHandler&) = delete;
-
-public:
-	virtual void OnCreate(Control& control);
-	virtual void OnDestroy(Control& control);
+	virtual void PALInvalidate() = 0;
 };
 
 class ControlRef final : public UniqueRef<Control> {
@@ -641,17 +661,26 @@ public:
 
 	void DrawRectangle(int x, int y, int width, int height);
 	void DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
+	void DrawEllipse(int x, int y, int width, int height);
+	void DrawEllipse(const std::pair<int, int>& location, const std::pair<int, int>& size);
+	void DrawLine(int x1, int y1, int x2, int y2);
+	void DrawLine(const std::pair<int, int>& from, const std::pair<int, int>& to);
 
 	void FillRectangle(int x, int y, int width, int height);
 	void FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
+	void FillEllipse(int x, int y, int width, int height);
+	void FillEllipse(const std::pair<int, int>& location, const std::pair<int, int>& size);
 
 protected:
 	virtual void PALSetPen(Pen& newPen) = 0;
 	virtual void PALSetBrush(Brush& newBrush) = 0;
 
 	virtual void PALDrawRectangle(int x, int y, int width, int height) = 0;
+	virtual void PALDrawEllipse(int x, int y, int width, int height) = 0;
+	virtual void PALDrawLine(int x, int y, int width, int height) = 0;
 
 	virtual void PALFillRectangle(int x, int y, int width, int height) = 0;
+	virtual void PALFillEllipse(int x, int y, int width, int height) = 0;
 };
 
 class RenderingContext2DRef final : public UniqueRef<RenderingContext2D> {

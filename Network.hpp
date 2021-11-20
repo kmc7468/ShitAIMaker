@@ -36,6 +36,7 @@ public:
 	void Backward(const Matrix& input);
 	std::size_t GetInputSize() const noexcept;
 	std::size_t GetOutputSize() const noexcept;
+	std::size_t GetOutputSize(std::size_t layerIndex) const noexcept;
 
 	const Optimizer& GetOptimizer() const noexcept;
 	Optimizer& GetOptimizer() noexcept;

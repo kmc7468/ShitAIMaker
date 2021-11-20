@@ -6,6 +6,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <Windows.h>
+#include <windowsx.h>
 
 #include <CommCtrl.h>
 #include <gdiplus.h>
@@ -24,7 +25,7 @@ namespace {
 
 namespace {
 	ULONG_PTR g_GdiplusToken;
-	
+
 	PenRef g_DefaultPen(nullptr);
 	BrushRef g_DefaultBrush(nullptr);
 
@@ -198,6 +199,12 @@ protected:
 		}
 	}
 
+	virtual void PALInvalidate() override {
+		assert(Handle != nullptr);
+
+		InvalidateRect(Handle, nullptr, TRUE);
+	}
+
 private:
 	void CreateHandle() {
 		const std::size_t childrenCount = GetChildrenCount();
@@ -229,6 +236,32 @@ private:
 protected:
 	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (message) {
+		case WM_SIZE:
+			GetEventHandler().OnResize(*this);
+
+			break;
+
+		case WM_LBUTTONDOWN:
+			GetEventHandler().OnMouseDown(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), MouseButton::Left);
+
+			break;
+
+		case WM_MOUSEMOVE:
+			GetEventHandler().OnMouseMove(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+
+			break;
+
+		case WM_LBUTTONUP:
+			GetEventHandler().OnMouseUp(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), MouseButton::Left);
+
+			break;
+
+		case WM_MOUSEWHEEL:
+			GetEventHandler().OnMouseWheel(*this, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam),
+				GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? MouseWheel::Forward : MouseWheel::Backward);
+
+			break;
+
 		case WM_DESTROY:
 			GetEventHandler().OnCreate(*this);
 
@@ -713,9 +746,18 @@ protected:
 	virtual void PALDrawRectangle(int x, int y, int width, int height) override {
 		m_Graphics.DrawRectangle(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x, y, width, height);
 	}
+	virtual void PALDrawEllipse(int x, int y, int width, int height) override {
+		m_Graphics.DrawEllipse(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x, y, width, height);
+	}
+	virtual void PALDrawLine(int x1, int y1, int x2, int y2) override {
+		m_Graphics.DrawLine(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x1, y1, x2, y2);
+	}
 
 	virtual void PALFillRectangle(int x, int y, int width, int height) override {
 		m_Graphics.FillRectangle(&dynamic_cast<const Win32Brush&>(GetBrush()).Object, x, y, width, height);
+	}
+	virtual void PALFillEllipse(int x, int y, int width, int height) override {
+		m_Graphics.FillEllipse(&dynamic_cast<const Win32Brush&>(GetBrush()).Object, x, y, width, height);
 	}
 };
 
@@ -761,7 +803,9 @@ void Win32Panel::WmPaint() {
 }
 
 Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceContext)
-	: RenderingContext2D(graphics, g_DefaultPen, g_DefaultBrush), m_Graphics(deviceContext) {}
+	: RenderingContext2D(graphics, g_DefaultPen, g_DefaultBrush), m_Graphics(deviceContext) {
+	m_Graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+}
 
 #undef GetMessage
 

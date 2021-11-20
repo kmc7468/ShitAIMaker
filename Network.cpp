@@ -62,6 +62,26 @@ std::size_t Network::GetOutputSize() const noexcept {
 
 	return 0;
 }
+std::size_t Network::GetOutputSize(std::size_t layerIndex) const noexcept {
+	std::size_t result = m_Layers[layerIndex]->GetForwardOutputSize();
+
+	if (result > 0) return result;
+
+	for (const auto& layer : std::ranges::views::reverse(
+		std::ranges::views::counted(m_Layers.begin(), layerIndex))) {
+		result = layer->GetForwardOutputSize();
+
+		if (result > 0) return result;
+	}
+
+	for (const auto& layer : std::ranges::subrange(m_Layers.begin() + layerIndex + 1, m_Layers.end())) {
+		result = layer->GetForwardInputSize();
+
+		if (result > 0) return result;
+	}
+
+	return 0;
+}
 
 const Optimizer& Network::GetOptimizer() const noexcept {
 	return *m_Optimizer.get();
