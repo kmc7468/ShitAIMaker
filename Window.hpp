@@ -1,26 +1,12 @@
 #pragma once
 
+#include "Network.hpp"
 #include "PALGraphics.hpp"
 #include "Project.hpp"
 
 #include <functional>
 #include <memory>
-
-class FunctionalMenuItemEventHandler final : public MenuItemEventHandler {
-private:
-	std::function<void(MenuItem&)> m_OnClick;
-
-public:
-	explicit FunctionalMenuItemEventHandler(std::function<void(MenuItem&)> onClick = nullptr);
-	FunctionalMenuItemEventHandler(const FunctionalMenuItemEventHandler&) = delete;
-	virtual ~FunctionalMenuItemEventHandler() override = default;
-
-public:
-	FunctionalMenuItemEventHandler& operator=(const FunctionalMenuItemEventHandler&) = delete;
-
-public:
-	virtual void OnClick(MenuItem& menuItem) override;
-};
+#include <optional>
 
 class MainWindowHandler final : public WindowEventHandler {
 private:
@@ -50,4 +36,39 @@ private:
 	DialogResult AskDiscardChanges();
 	void CreateNewProject();
 	bool SaveProject(bool saveAs = false);
+
+	std::optional<TrainData> AskTrainData(std::string dialogTitle);
+};
+
+class TrainDataInputDialogHandler final : public WindowDialogEventHandler {
+private:
+	WindowDialog* m_WindowDialog = nullptr;
+
+	TextBox* m_TrainDataTextBox = nullptr;
+	Button* m_OkButton = nullptr;
+	Button* m_CancelButton = nullptr;
+
+	std::size_t m_InputSize, m_OutputSize;
+	std::optional<TrainData> m_TrainData;
+
+public:
+	TrainDataInputDialogHandler(std::size_t inputSize, std::size_t outputSize) noexcept;
+	TrainDataInputDialogHandler(const TrainDataInputDialogHandler&) = delete;
+	virtual ~TrainDataInputDialogHandler() override = default;
+
+public:
+	TrainDataInputDialogHandler& operator=(const TrainDataInputDialogHandler&) = delete;
+
+public:
+	bool HasTrainData() const noexcept;
+	const TrainData& GetTrainData() const noexcept;
+
+public:
+	virtual void OnCreate(WindowDialog& dialog) override;
+
+	virtual void OnResize(WindowDialog& dialog) override;
+
+public:
+	void OnOkButtonClick();
+	void OnCancelButtonClick();
 };

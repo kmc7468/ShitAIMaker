@@ -129,6 +129,12 @@ enum class MouseWheel {
 	Backward,
 };
 
+enum class Key {
+	None,
+
+	Enter,
+};
+
 class EventHandler {
 public:
 	EventHandler() noexcept = default;
@@ -148,6 +154,9 @@ public:
 	virtual void OnMouseMove(Control& control, int x, int y);
 	virtual void OnMouseUp(Control& control, int x, int y, MouseButton mouseButton);
 	virtual void OnMouseWheel(Control& control, int x, int y, MouseWheel mouseWheel);
+
+	virtual void OnKeyDown(Control& control, Key key);
+	virtual void OnKeyUp(Control& control, Key key);
 };
 
 class Control {
@@ -511,6 +520,37 @@ public:
 private:
 	static std::unique_ptr<Panel> CreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler);
 	static std::unique_ptr<Panel> PALCreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler);
+};
+
+using TextBoxEventHandler = EventHandler;
+
+class TextBox : public virtual Control {
+private:
+	bool m_MultiLines = false;
+
+public:
+	explicit TextBox(bool multiLines) noexcept;
+	TextBox(const TextBox&) = delete;
+	virtual ~TextBox() override = default;
+
+public:
+	TextBox& operator=(const TextBox&) = delete;
+
+public:
+	bool GetMultiLines() const noexcept;
+};
+
+class TextBoxRef final : public UniqueRef<TextBox> {
+public:
+	using UniqueRef::UniqueRef;
+
+	explicit TextBoxRef(std::unique_ptr<TextBoxEventHandler>&& eventHandler, bool multiLines = false);
+
+private:
+	static std::unique_ptr<TextBox> CreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
+		bool multiLines);
+	static std::unique_ptr<TextBox> PALCreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
+		bool multiLines);
 };
 
 class Color final {
@@ -908,6 +948,9 @@ public:
 public:
 	virtual void OnCreate(WindowDialog& dialog);
 	virtual void OnDestroy(WindowDialog& dialog);
+
+	virtual void OnResize(WindowDialog& dialog);
+
 	virtual void OnPaint(WindowDialog& dialog, Graphics& graphics);
 };
 
@@ -933,6 +976,10 @@ public:
 	WindowDialog& operator=(const WindowDialog&) = delete;
 
 public:
+	const Window& GetWindow() const noexcept;
+	Window& GetWindow() noexcept;
+
+public:
 	virtual DialogResult Show() override;
 
 private:
@@ -956,6 +1003,10 @@ public:
 	std::pair<int, int> GetClientSize() const;
 
 	void Invalidate();
+
+	std::pair<int, int> GetMinimumSize() const;
+	void SetMinimumSize(int newMinimumWidth, int newMinimumHeight);
+	void SetMinimumSize(const std::pair<int, int>& newMinimumSize);
 
 	void Close(DialogResult dialogResult);
 };

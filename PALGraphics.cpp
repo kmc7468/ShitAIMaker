@@ -22,6 +22,9 @@ void EventHandler::OnMouseMove(Control&, int, int) {}
 void EventHandler::OnMouseUp(Control&, int, int, MouseButton) {}
 void EventHandler::OnMouseWheel(Control&, int, int, MouseWheel) {}
 
+void EventHandler::OnKeyDown(Control&, Key) {}
+void EventHandler::OnKeyUp(Control&, Key) {}
+
 Control::Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept
 	: m_EventHandler(std::move(eventHandler)) {}
 
@@ -350,6 +353,23 @@ std::unique_ptr<Panel> PanelRef::CreatePanel(std::unique_ptr<PanelEventHandler>&
 	return PALCreatePanel(std::move(eventHandler));
 }
 
+TextBox::TextBox(bool multiLines) noexcept
+	: m_MultiLines(multiLines) {}
+
+bool TextBox::GetMultiLines() const noexcept {
+	return m_MultiLines;
+}
+
+TextBoxRef::TextBoxRef(std::unique_ptr<TextBoxEventHandler>&& eventHandler, bool multiLines)
+	: UniqueRef(CreateTextBox(std::move(eventHandler), multiLines)) {}
+
+std::unique_ptr<TextBox> TextBoxRef::CreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
+	bool multiLines) {
+	assert(eventHandler != nullptr);
+
+	return PALCreateTextBox(std::move(eventHandler), multiLines);
+}
+
 const Color Color::Black(0, 0, 0);
 const Color Color::Red(255, 0, 0);
 const Color Color::Green(0, 255, 0);
@@ -586,6 +606,9 @@ SaveFileDialogRef::SaveFileDialogRef(Window& owner, std::string dialogTitle)
 
 void WindowDialogEventHandler::OnCreate(WindowDialog&) {}
 void WindowDialogEventHandler::OnDestroy(WindowDialog&) {}
+
+void WindowDialogEventHandler::OnResize(WindowDialog&) {}
+
 void WindowDialogEventHandler::OnPaint(WindowDialog&, Graphics&) {}
 
 class WindowDialogWindowEventHandler final : public virtual WindowEventHandler {
@@ -606,13 +629,19 @@ public:
 		m_WindowDialog.GetEventHandler().OnCreate(m_WindowDialog);
 	}
 	virtual void OnClose(Window&, bool&) override {
-		m_WindowDialog.m_IsRunning = false;
-		m_WindowDialog.m_Result = DialogResult::Cancel;
+		if (m_WindowDialog.m_IsRunning) {
+			m_WindowDialog.m_IsRunning = false;
+			m_WindowDialog.m_Result = DialogResult::Cancel;
+		}
 
 		m_WindowDialog.GetOwner().SetEnabled(true);
 	}
 	virtual void OnDestroy(Control&) override {
 		m_WindowDialog.GetEventHandler().OnDestroy(m_WindowDialog);
+	}
+
+	virtual void OnResize(Control&) override {
+		m_WindowDialog.GetEventHandler().OnResize(m_WindowDialog);
 	}
 
 	virtual void OnPaint(Control&, Graphics& graphics) override {
@@ -627,6 +656,13 @@ WindowDialog::WindowDialog(Window& owner, std::string dialogTitle,
 	assert(m_EventHandler != nullptr);
 
 	m_Window->SetText(std::string(GetDialogTitle()));
+}
+
+const Window& WindowDialog::GetWindow() const noexcept {
+	return m_Window.Get();
+}
+Window& WindowDialog::GetWindow() noexcept {
+	return m_Window.Get();
 }
 
 DialogResult WindowDialog::Show() {
@@ -693,6 +729,16 @@ void WindowDialog::Close(DialogResult dialogResult) {
 	m_Result = dialogResult;
 
 	m_Window->Close();
+}
+
+std::pair<int, int> WindowDialog::GetMinimumSize() const {
+	return m_Window->GetMinimumSize();
+}
+void WindowDialog::SetMinimumSize(int newMinimumWidth, int newMinimumHeight) {
+	m_Window->SetMinimumSize(newMinimumWidth, newMinimumHeight);
+}
+void WindowDialog::SetMinimumSize(const std::pair<int, int>& newMinimumSize) {
+	m_Window->SetMinimumSize(newMinimumSize);
 }
 
 WindowDialogRef::WindowDialogRef(Window& owner, std::string dialogTitle,

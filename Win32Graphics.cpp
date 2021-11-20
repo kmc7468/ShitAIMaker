@@ -174,7 +174,7 @@ protected:
 			const int length = GetWindowTextLengthA(Handle);
 
 			if (length == 0) {
-				if (GetLastError() != 0) return {};
+				if (GetLastError() == 0) return {};
 				else throw std::runtime_error("Failed to get the text of a control");
 			}
 
@@ -272,6 +272,34 @@ protected:
 				GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? MouseWheel::Forward : MouseWheel::Backward);
 
 			break;
+
+		case WM_KEYDOWN: {
+			Key key = Key::None;
+
+			switch (wParam) {
+			case VK_RETURN: key = Key::Enter; break;
+			}
+
+			if (key != Key::None) {
+				GetEventHandler().OnKeyDown(*this, key);
+			}
+
+			break;
+		}
+
+		case WM_KEYUP: {
+			Key key = Key::None;
+
+			switch (wParam) {
+			case VK_RETURN: key = Key::Enter; break;
+			}
+
+			if (key != Key::None) {
+				GetEventHandler().OnKeyUp(*this, key);
+			}
+
+			break;
+		}
 
 		case WM_DESTROY:
 			GetEventHandler().OnDestroy(*this);
@@ -554,7 +582,7 @@ protected:
 				CreateParams.Menu = dynamic_cast<Win32Menu&>(GetMenu()).Handle;
 			}
 
-			DestroyWindow(Handle);
+			SendMessage(Handle, WM_CLOSE, 0, 0);
 		}
 	}
 
@@ -699,6 +727,23 @@ private:
 
 std::unique_ptr<Panel> PanelRef::PALCreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler) {
 	return std::make_unique<Win32Panel>(std::move(eventHandler));
+}
+
+class Win32TextBox final : public TextBox, public Win32Control {
+public:
+	Win32TextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler, bool multiLines) noexcept
+		: Control(std::move(eventHandler)), TextBox(multiLines), Win32Control(WC_EDITA,
+			WS_CHILD | WS_BORDER | (multiLines ? ES_MULTILINE | ES_AUTOVSCROLL | WS_VSCROLL : 0)) {}
+	Win32TextBox(const Win32TextBox&) = delete;
+	virtual ~Win32TextBox() override = default;
+
+public:
+	Win32TextBox& operator=(const Win32TextBox&) = delete;
+};
+
+std::unique_ptr<TextBox> TextBoxRef::PALCreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
+	bool multiLines) {
+	return std::make_unique<Win32TextBox>(std::move(eventHandler), multiLines);
 }
 
 class Win32Pen final : public SolidPen {
