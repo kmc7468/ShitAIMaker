@@ -214,6 +214,7 @@ protected:
 		assert(Handle != nullptr);
 
 		InvalidateRect(Handle, nullptr, TRUE);
+		UpdateWindow(Handle);
 	}
 
 private:
@@ -570,6 +571,7 @@ protected:
 		assert(Handle != nullptr);
 
 		InvalidateRect(Handle, nullptr, FALSE);
+		UpdateWindow(Handle);
 	}
 
 	virtual void PALClose() override {
@@ -707,6 +709,7 @@ protected:
 		assert(Handle != nullptr);
 
 		InvalidateRect(Handle, nullptr, FALSE);
+		UpdateWindow(Handle);
 	}
 
 protected:
