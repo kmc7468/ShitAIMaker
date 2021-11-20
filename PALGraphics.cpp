@@ -358,6 +358,10 @@ std::unique_ptr<Panel> PanelRef::CreatePanel(std::unique_ptr<PanelEventHandler>&
 	return PALCreatePanel(std::move(eventHandler));
 }
 
+TextBoxEventHandler::TextBoxEventHandler() noexcept {}
+
+void TextBoxEventHandler::OnTextChanged(TextBox&) {}
+
 TextBox::TextBox(bool multiLines) noexcept
 	: m_MultiLines(multiLines) {}
 
@@ -373,6 +377,41 @@ std::unique_ptr<TextBox> TextBoxRef::CreateTextBox(std::unique_ptr<TextBoxEventH
 	assert(eventHandler != nullptr);
 
 	return PALCreateTextBox(std::move(eventHandler), multiLines);
+}
+
+ComboBoxEventHandler::ComboBoxEventHandler() noexcept {}
+
+void ComboBoxEventHandler::OnItemSelected(ComboBox&, std::size_t) {}
+
+ComboBox::ComboBox() noexcept {}
+
+std::string_view ComboBox::GetItem(std::size_t index) const noexcept {
+	return m_Items[index];
+}
+std::size_t ComboBox::GetItemCount() const noexcept {
+	return m_Items.size();
+}
+std::size_t ComboBox::GetSelectedItemIndex() const {
+	return PALGetSelectedItemIndex();
+}
+void ComboBox::SetSelectedItemIndex(std::size_t index) {
+	assert(index < m_Items.size());
+
+	PALSetSelectedItemIndex(index);
+}
+void ComboBox::AddItem(std::string newItem) {
+	m_Items.push_back(std::move(newItem));
+
+	PALAddItem(m_Items.back());
+}
+
+ComboBoxRef::ComboBoxRef(std::unique_ptr<ComboBoxEventHandler>&& eventHandler)
+	: UniqueRef(CreateComboBox(std::move(eventHandler))) {}
+
+std::unique_ptr<ComboBox> ComboBoxRef::CreateComboBox(std::unique_ptr<ComboBoxEventHandler>&& eventHandler) {
+	assert(eventHandler != nullptr);
+
+	return PALCreateComboBox(std::move(eventHandler));
 }
 
 const Color Color::Black(0, 0, 0);

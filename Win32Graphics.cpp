@@ -772,11 +772,79 @@ public:
 
 public:
 	Win32TextBox& operator=(const Win32TextBox&) = delete;
+
+protected:
+	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
+		switch (message) {
+		case WM_REFLECT + WM_COMMAND:
+			switch (HIWORD(wParam)) {
+			case EN_CHANGE:
+				dynamic_cast<TextBoxEventHandler&>(GetEventHandler()).OnTextChanged(*this);
+
+				break;
+			}
+
+			return 0;
+		}
+
+		return Win32Control::Callback(message, wParam, lParam);
+	}
 };
 
 std::unique_ptr<TextBox> TextBoxRef::PALCreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
 	bool multiLines) {
 	return std::make_unique<Win32TextBox>(std::move(eventHandler), multiLines);
+}
+
+class Win32ComboBox final : public ComboBox, public Win32Control {
+public:
+	Win32ComboBox(std::unique_ptr<ComboBoxEventHandler>&& eventHandler) noexcept
+		: Control(std::move(eventHandler)), Win32Control(WC_COMBOBOXA, WS_CHILD | CBS_DROPDOWNLIST) {}
+	Win32ComboBox(const Win32ComboBox&) = delete;
+	virtual ~Win32ComboBox() override = default;
+
+public:
+	Win32ComboBox& operator=(const Win32ComboBox&) = delete;
+
+protected:
+	virtual std::size_t PALGetSelectedItemIndex() const override {
+		assert(Handle != nullptr);
+
+		const int selectedIndex = ComboBox_GetCurSel(Handle);
+
+		return selectedIndex != CB_ERR ? static_cast<std::size_t>(selectedIndex) : ComboBox::NoSelected;
+	}
+	virtual void PALSetSelectedItemIndex(std::size_t index) override {
+		assert(Handle != nullptr);
+
+		ComboBox_SetCurSel(Handle, static_cast<int>(index));
+	}
+	virtual void PALAddItem(const std::string& newItem) override {
+		assert(Handle != nullptr);
+
+		ComboBox_AddString(Handle, GetTString(newItem).data());
+	}
+
+protected:
+	virtual LRESULT Callback(UINT message, WPARAM wParam, LPARAM lParam) override {
+		switch (message) {
+		case WM_REFLECT + WM_COMMAND:
+			switch (HIWORD(wParam)) {
+			case CBN_SELCHANGE:
+				dynamic_cast<ComboBoxEventHandler&>(GetEventHandler()).OnItemSelected(*this, PALGetSelectedItemIndex());
+
+				break;
+			}
+
+			return 0;
+		}
+
+		return Win32Control::Callback(message, wParam, lParam);
+	}
+};
+
+std::unique_ptr<ComboBox> ComboBoxRef::PALCreateComboBox(std::unique_ptr<ComboBoxEventHandler>&& eventHandler) {
+	return std::make_unique<Win32ComboBox>(std::move(eventHandler));
 }
 
 class Win32Pen final : public SolidPen {

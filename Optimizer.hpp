@@ -38,7 +38,7 @@ private:
 
 public:
 	Optimizer(std::string name) noexcept;
-	Optimizer(const Optimizer&) = delete;
+	Optimizer(const Optimizer& other);
 	virtual ~Optimizer() = default;
 
 public:
@@ -53,6 +53,8 @@ public:
 	std::shared_ptr<const LossFunction> GetLossFunction() const noexcept;
 	void SetLossFunction(const std::shared_ptr<const LossFunction>& lossFunction) noexcept;
 
+	virtual std::unique_ptr<Optimizer> Copy() const = 0;
+
 	virtual void Optimize(const TrainData& trainData, std::size_t epoch) = 0;
 };
 
@@ -62,7 +64,7 @@ private:
 
 public:
 	SGDOptimizer();
-	SGDOptimizer(const SGDOptimizer&) = delete;
+	SGDOptimizer(const SGDOptimizer& other);
 	virtual ~SGDOptimizer() override = default;
 
 public:
@@ -71,6 +73,9 @@ public:
 public:
 	float GetLearningRate() const noexcept;
 	void SetLearningRate(float newLearningRate) noexcept;
+
+public:
+	virtual std::unique_ptr<Optimizer> Copy() const override;
 
 	virtual void Optimize(const TrainData& trainData, std::size_t epoch) override;
 };

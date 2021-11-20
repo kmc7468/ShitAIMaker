@@ -527,7 +527,20 @@ private:
 	static std::unique_ptr<Panel> PALCreatePanel(std::unique_ptr<PanelEventHandler>&& eventHandler);
 };
 
-using TextBoxEventHandler = EventHandler;
+class TextBox;
+
+class TextBoxEventHandler : public virtual EventHandler {
+public:
+	TextBoxEventHandler() noexcept;
+	TextBoxEventHandler(const TextBoxEventHandler&) = delete;
+	virtual ~TextBoxEventHandler() override = default;
+
+public:
+	TextBoxEventHandler& operator=(const TextBoxEventHandler&) = delete;
+
+public:
+	virtual void OnTextChanged(TextBox& textBox);
+};
 
 class TextBox : public virtual Control {
 private:
@@ -556,6 +569,60 @@ private:
 		bool multiLines);
 	static std::unique_ptr<TextBox> PALCreateTextBox(std::unique_ptr<TextBoxEventHandler>&& eventHandler,
 		bool multiLines);
+};
+
+class ComboBox;
+
+class ComboBoxEventHandler : public virtual EventHandler {
+public:
+	ComboBoxEventHandler() noexcept;
+	ComboBoxEventHandler(const ComboBoxEventHandler&) = delete;
+	virtual ~ComboBoxEventHandler() override = default;
+
+public:
+	ComboBoxEventHandler& operator=(const ComboBoxEventHandler&) = delete;
+
+public:
+	virtual void OnItemSelected(ComboBox& comboBox, std::size_t index);
+};
+
+class ComboBox : public virtual Control {
+public:
+	static inline const std::size_t NoSelected = static_cast<std::size_t>(-1);
+
+private:
+	std::vector<std::string> m_Items;
+
+public:
+	ComboBox() noexcept;
+	ComboBox(const ComboBox&) = delete;
+	virtual ~ComboBox() override = default;
+
+public:
+	ComboBox& operator=(const ComboBox&) = delete;
+
+public:
+	std::string_view GetItem(std::size_t index) const noexcept;
+	std::size_t GetItemCount() const noexcept;
+	std::size_t GetSelectedItemIndex() const;
+	void SetSelectedItemIndex(std::size_t index);
+	void AddItem(std::string newItem);
+
+protected:
+	virtual std::size_t PALGetSelectedItemIndex() const = 0;
+	virtual void PALSetSelectedItemIndex(std::size_t index) = 0;
+	virtual void PALAddItem(const std::string& newItem) = 0;
+};
+
+class ComboBoxRef final : public UniqueRef<ComboBox> {
+public:
+	using UniqueRef::UniqueRef;
+
+	explicit ComboBoxRef(std::unique_ptr<ComboBoxEventHandler>&& eventHandler);
+
+private:
+	static std::unique_ptr<ComboBox> CreateComboBox(std::unique_ptr<ComboBoxEventHandler>&& eventHandler);
+	static std::unique_ptr<ComboBox> PALCreateComboBox(std::unique_ptr<ComboBoxEventHandler>&& eventHandler);
 };
 
 class Color final {

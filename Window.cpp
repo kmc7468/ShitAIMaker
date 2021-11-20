@@ -13,6 +13,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -550,6 +551,358 @@ public:
 	}
 };
 
+class OptimizerOptionDialogHandler final : public WindowDialogEventHandler {
+private:
+	WindowDialog* m_WindowDialog = nullptr;
+
+	ComboBox* m_OptimizerNameComboBox = nullptr;
+	ComboBox* m_LossFunctionNameComboBox = nullptr;
+	Button* m_OkButton = nullptr;
+	Button* m_ApplyButton = nullptr;
+	Button* m_CancelButton = nullptr;
+
+	std::size_t prevOptimizerNameComboBoxIndex = ComboBox::NoSelected;
+	std::size_t prevLossFunctionNameComboBoxIndex = ComboBox::NoSelected;
+
+	TextBox* m_LearningRateTextBox = nullptr;
+
+	Network& m_Network;
+	bool m_IsOptimzierEdited = false;
+
+	std::unique_ptr<SGDOptimizer> m_SGDOptimizer = std::make_unique<SGDOptimizer>();
+
+public:
+	OptimizerOptionDialogHandler(Network& network)
+		: m_Network(network) {
+		if (!network.HasOptimizer()) return;
+
+		const Optimizer& optimizer = m_Network.GetOptimizer();
+		const std::string_view optimizerName = optimizer.GetName();
+
+		if (optimizerName == "SGDOptimizer") {
+			m_SGDOptimizer = std::unique_ptr<SGDOptimizer>(
+				static_cast<SGDOptimizer*>(optimizer.Copy().release()));
+		}
+	}
+	OptimizerOptionDialogHandler(const OptimizerOptionDialogHandler&) = delete;
+	virtual ~OptimizerOptionDialogHandler() override = default;
+
+public:
+	OptimizerOptionDialogHandler& operator=(const OptimizerOptionDialogHandler&) = delete;
+
+public:
+	virtual void OnCreate(WindowDialog& dialog) override {
+		m_WindowDialog = &dialog;
+
+		class OptimizerNameComboBoxHandler final : public ComboBoxEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			OptimizerNameComboBoxHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			OptimizerNameComboBoxHandler(const OptimizerNameComboBoxHandler&) = delete;
+			virtual ~OptimizerNameComboBoxHandler() override = default;
+
+		public:
+			OptimizerNameComboBoxHandler& operator=(const OptimizerNameComboBoxHandler&) = delete;
+
+		public:
+			virtual void OnItemSelected(ComboBox&, std::size_t index) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(
+					m_WindowDialog.GetEventHandler()).OnOptimizerNameComboBoxItemChanged(index);
+			}
+		};
+
+		m_OptimizerNameComboBox = &dynamic_cast<ComboBox&>(dialog.AddChild(
+			ComboBoxRef(std::make_unique<OptimizerNameComboBoxHandler>(*m_WindowDialog))));
+
+		m_OptimizerNameComboBox->SetLocation(10, 10);
+		m_OptimizerNameComboBox->Show();
+
+		m_OptimizerNameComboBox->AddItem("확률적 경사 하강법");
+
+		class LossFunctionNameComboBoxHandler final : public ComboBoxEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			LossFunctionNameComboBoxHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			LossFunctionNameComboBoxHandler(const LossFunctionNameComboBoxHandler&) = delete;
+			virtual ~LossFunctionNameComboBoxHandler() override = default;
+
+		public:
+			LossFunctionNameComboBoxHandler& operator=(const LossFunctionNameComboBoxHandler&) = delete;
+
+		public:
+			virtual void OnItemSelected(ComboBox&, std::size_t index) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(
+					m_WindowDialog.GetEventHandler()).OnLossFunctionNameComboBoxItemChanged(index);
+			}
+		};
+
+		m_LossFunctionNameComboBox = &dynamic_cast<ComboBox&>(dialog.AddChild(
+			ComboBoxRef(std::make_unique<LossFunctionNameComboBoxHandler>(*m_WindowDialog))));
+
+		m_LossFunctionNameComboBox->SetLocation(10, 10 + (10 + 24));
+		m_LossFunctionNameComboBox->Show();
+		m_LossFunctionNameComboBox->SetEnabled(false);
+
+		m_LossFunctionNameComboBox->AddItem("MSE");
+
+		class OkButtonHandler final : public ButtonEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			OkButtonHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			OkButtonHandler(const OkButtonHandler&) = delete;
+			virtual ~OkButtonHandler() override = default;
+
+		public:
+			OkButtonHandler& operator=(const OkButtonHandler&) = delete;
+
+		public:
+			virtual void OnClick(Control&) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
+			}
+		};
+
+		m_OkButton = &dynamic_cast<Button&>(dialog.AddChild(
+			ButtonRef(std::make_unique<OkButtonHandler>(*m_WindowDialog))));
+
+		m_OkButton->SetText("확인");
+		m_OkButton->Show();
+
+		class ApplyButtonHandler final : public ButtonEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			ApplyButtonHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			ApplyButtonHandler(const ApplyButtonHandler&) = delete;
+			virtual ~ApplyButtonHandler() override = default;
+
+		public:
+			ApplyButtonHandler& operator=(const ApplyButtonHandler&) = delete;
+
+		public:
+			virtual void OnClick(Control&) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(m_WindowDialog.GetEventHandler()).OnApplyButtonClick();
+			}
+		};
+
+		m_ApplyButton = &dynamic_cast<Button&>(dialog.AddChild(
+			ButtonRef(std::make_unique<ApplyButtonHandler>(*m_WindowDialog))));
+
+		m_ApplyButton->SetText("적용");
+		m_ApplyButton->Show();
+		m_ApplyButton->SetEnabled(false);
+
+		class CancelButtonHandler final : public ButtonEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			CancelButtonHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			CancelButtonHandler(const CancelButtonHandler&) = delete;
+			virtual ~CancelButtonHandler() override = default;
+
+		public:
+			CancelButtonHandler& operator=(const CancelButtonHandler&) = delete;
+
+		public:
+			virtual void OnClick(Control&) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(m_WindowDialog.GetEventHandler()).OnCancelButtonClick();
+			}
+		};
+
+		m_CancelButton = &dynamic_cast<Button&>(dialog.AddChild(
+			ButtonRef(std::make_unique<CancelButtonHandler>(*m_WindowDialog))));
+
+		m_CancelButton->SetText("취소");
+		m_CancelButton->Show();
+
+		class LearingRateTextBoxHandler final : public TextBoxEventHandler {
+		private:
+			WindowDialog& m_WindowDialog;
+
+		public:
+			LearingRateTextBoxHandler(WindowDialog& windowDialog) noexcept
+				: m_WindowDialog(windowDialog) {}
+			LearingRateTextBoxHandler(const LearingRateTextBoxHandler&) = delete;
+			virtual ~LearingRateTextBoxHandler() override = default;
+
+		public:
+			LearingRateTextBoxHandler& operator=(const LearingRateTextBoxHandler&) = delete;
+
+		public:
+			virtual void OnTextChanged(TextBox&) override {
+				dynamic_cast<OptimizerOptionDialogHandler&>(
+					m_WindowDialog.GetEventHandler()).OnLearningRateTextBoxTextChanged();
+			}
+		};
+
+		m_LearningRateTextBox = &dynamic_cast<TextBox&>(dialog.AddChild(
+			TextBoxRef(std::make_unique<LearingRateTextBoxHandler>(*m_WindowDialog))));
+
+		m_LearningRateTextBox->SetLocation(10, 10 + (20 + 24 * 2));
+
+		m_WindowDialog->SetMinimumSize(400, 160);
+
+		if (m_Network.HasOptimizer()) {
+			const Optimizer& optimizer = m_Network.GetOptimizer();
+			const std::string_view optimizerName = optimizer.GetName();
+
+			if (optimizerName == "SGDOptimizer") {
+				m_OptimizerNameComboBox->SetSelectedItemIndex(0);
+
+				OnOptimizerNameComboBoxItemChanged(0);
+
+				m_ApplyButton->SetEnabled(false);
+			}
+
+			const std::string_view lossFunctionName = optimizer.GetLossFunction()->GetName();
+
+			if (lossFunctionName == "MSE") {
+				m_LossFunctionNameComboBox->SetSelectedItemIndex(0);
+
+				OnLossFunctionNameComboBoxItemChanged(0);
+
+				m_ApplyButton->SetEnabled(false);
+			}
+
+			m_LossFunctionNameComboBox->SetEnabled(true);
+		}
+	}
+
+	virtual void OnResize(WindowDialog&) override {
+		const auto& [clientWidth, clientHeight] = m_WindowDialog->GetClientSize();
+
+		if (m_OptimizerNameComboBox) {
+			m_OptimizerNameComboBox->SetSize(clientWidth - 20, 24);
+
+			m_LossFunctionNameComboBox->SetSize(clientWidth - 20, 24);
+
+			m_OkButton->SetLocation(clientWidth - (30 + 82 * 3), clientHeight - (10 + 24));
+			m_OkButton->SetSize(82, 24);
+
+			m_ApplyButton->SetLocation(clientWidth - (20 + 82 * 2), clientHeight - (10 + 24));
+			m_ApplyButton->SetSize(82, 24);
+
+			m_CancelButton->SetLocation(clientWidth - (10 + 82), clientHeight - (10 + 24));
+			m_CancelButton->SetSize(82, 24);
+
+			m_LearningRateTextBox->SetSize(clientWidth - 20, 24);
+		}
+	}
+
+public:
+	void OnOptimizerNameComboBoxItemChanged(std::size_t index) {
+		if (prevOptimizerNameComboBoxIndex == index) return;
+
+		if (index == 0) {
+			m_LossFunctionNameComboBox->SetEnabled(true);
+
+			m_ApplyButton->SetEnabled(true);
+
+			m_LearningRateTextBox->SetText(std::to_string(m_SGDOptimizer->GetLearningRate()));
+			m_LearningRateTextBox->Show();
+
+			m_WindowDialog->SetMinimumSize(400, 190);
+		}
+
+		prevOptimizerNameComboBoxIndex = index;
+	}
+	void OnLossFunctionNameComboBoxItemChanged(std::size_t index) {
+		if (prevLossFunctionNameComboBoxIndex == index) return;
+
+		std::shared_ptr<const LossFunction> newLossFunction = nullptr;
+
+		if (index == 0) {
+			newLossFunction = MSE;
+		}
+
+		m_SGDOptimizer->SetLossFunction(newLossFunction);
+
+		m_ApplyButton->SetEnabled(true);
+
+		prevLossFunctionNameComboBoxIndex = index;
+	}
+
+	void OnLearningRateTextBoxTextChanged() {
+		m_ApplyButton->SetEnabled(true);
+	}
+
+	void OnOkButtonClick() {
+		if (m_ApplyButton->GetEnabled()) {
+			OnApplyButtonClick();
+		}
+
+		OnCancelButtonClick();
+	}
+	void OnApplyButtonClick() {
+		if (m_LossFunctionNameComboBox->GetSelectedItemIndex() == ComboBox::NoSelected) {
+			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "손실 함수가 선택되지 않았습니다", {},
+				MessageDialog::Error, MessageDialog::Ok);
+
+			messageDialog->Show();
+
+			return;
+		}
+
+		switch (m_OptimizerNameComboBox->GetSelectedItemIndex()) {
+		case 0: {
+			const auto learningRate = GetLearningRate();
+
+			if (!learningRate) return;
+
+			m_SGDOptimizer->SetLearningRate(*learningRate);
+			m_Network.SetOptimizer(m_SGDOptimizer->Copy());
+
+			break;
+		}
+		}
+
+		m_ApplyButton->SetEnabled(false);
+
+		m_IsOptimzierEdited = true;
+	}
+	void OnCancelButtonClick() {
+		m_WindowDialog->Close(m_IsOptimzierEdited ? DialogResult::Ok : DialogResult::Cancel);
+	}
+
+private:
+	std::optional<float> GetLearningRate() {
+		std::istringstream iss(m_LearningRateTextBox->GetText() + ' ');
+
+		float learningRate;
+		iss >> learningRate;
+
+		if (iss.eof()) {
+			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+				"학습률을 입력했는지 확인해 보세요.",
+				MessageDialog::Error, MessageDialog::Ok);
+
+			messageDialog->Show();
+
+			return std::nullopt;
+		} else if (iss.fail() || iss.bad() || learningRate <= 0 || learningRate > 1) {
+			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+				"학습률이 0 초과 1 이하의 실수인지 확인해 보세요.",
+				MessageDialog::Error, MessageDialog::Ok);
+
+			messageDialog->Show();
+
+			return std::nullopt;
+		} else return learningRate;
+	}
+};
+
 class InputOrOutputSizeInputDialogHandler final : public WindowDialogEventHandler {
 private:
 	WindowDialog* m_WindowDialog = nullptr;
@@ -1051,7 +1404,14 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("옵티마이저 설정", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			WindowDialogRef optimizerOptionDialog(*m_Window, "옵티마이저 설정",
+				std::make_unique<OptimizerOptionDialogHandler>(m_Project->GetNetwork()));
+
+			if (optimizerOptionDialog->Show() == DialogResult::Ok) {
+				m_IsSaved = false;
+
+				UpdateText();
+			}
 		})));
 	network->AddSubItem(MenuItemRef("파라미터 초기화", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {

@@ -38,3 +38,9 @@ std::basic_string<Char> EncodeToMultiByteString(const std::wstring& wideCharStri
 
 	return result;
 }
+
+#if defined(UNICODE) || defined(_UNICODE)
+std::wstring GetTString(const std::string& multiByteString);
+#else
+const std::string& GetTString(const std::string& multiByteString);
+#endif

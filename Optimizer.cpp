@@ -50,6 +50,8 @@ const std::shared_ptr<const LossFunction> MSE = std::make_shared<MSEImpl>();
 
 Optimizer::Optimizer(std::string name) noexcept
 	: m_Name(std::move(name)) {}
+Optimizer::Optimizer(const Optimizer& other)
+	: m_Name(other.m_Name), m_LossFunction(other.m_LossFunction) {}
 
 std::string_view Optimizer::GetName() const noexcept {
 	return m_Name;
@@ -70,13 +72,13 @@ std::shared_ptr<const LossFunction> Optimizer::GetLossFunction() const noexcept 
 	return m_LossFunction;
 }
 void Optimizer::SetLossFunction(const std::shared_ptr<const LossFunction>& lossFunction) noexcept {
-	assert(m_LossFunction == nullptr);
-
 	m_LossFunction = lossFunction;
 }
 
 SGDOptimizer::SGDOptimizer()
 	: Optimizer("SGDOptimizer") {}
+SGDOptimizer::SGDOptimizer(const SGDOptimizer& other)
+	: Optimizer(other), m_LearningRate(other.m_LearningRate) {}
 
 float SGDOptimizer::GetLearningRate() const noexcept {
 	return m_LearningRate;
@@ -86,6 +88,10 @@ void SGDOptimizer::SetLearningRate(float newLearningRate) noexcept {
 	assert(newLearningRate <= 1.f);
 
 	m_LearningRate = newLearningRate;
+}
+
+std::unique_ptr<Optimizer> SGDOptimizer::Copy() const {
+	return std::make_unique<SGDOptimizer>(*this);
 }
 
 void SGDOptimizer::Optimize(const TrainData& trainData, std::size_t epoch) {

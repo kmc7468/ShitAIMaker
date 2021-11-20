@@ -93,8 +93,6 @@ Optimizer& Network::GetOptimizer() noexcept {
 	return *m_Optimizer.get();
 }
 void Network::SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept {
-	assert(m_Optimizer == nullptr);
-
 	m_Optimizer = std::move(optimizer);
 	m_Optimizer->Attach(*this);
 }
