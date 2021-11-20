@@ -83,6 +83,9 @@ std::size_t Network::GetOutputSize(std::size_t layerIndex) const noexcept {
 	return 0;
 }
 
+bool Network::HasOptimizer() const noexcept {
+	return m_Optimizer != nullptr;
+}
 const Optimizer& Network::GetOptimizer() const noexcept {
 	return *m_Optimizer.get();
 }

@@ -1022,6 +1022,7 @@ protected:
 		filter = GetWin32Filter();
 
 		openFileName.lpstrFilter = filter.data();
+		openFileName.lpstrDefExt = GetFilter(0).second.data();
 
 		return openFileName;
 	}

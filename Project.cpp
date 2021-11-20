@@ -262,6 +262,9 @@ namespace {
 		}
 
 		const std::string optimizerName = bin.ReadString();
+
+		if (optimizerName.empty()) return;
+
 		std::unique_ptr<Optimizer> optimizer;
 
 		if (optimizerName == "SGDOptimizer") {
@@ -305,17 +308,21 @@ namespace {
 			WriteParameterTable(bin, layer.GetParameterTable());
 		}
 
-		const Optimizer& optimizer = network.GetOptimizer();
-		const std::string optimizerName(optimizer.GetName());
+		if (network.HasOptimizer()) {
+			const Optimizer& optimizer = network.GetOptimizer();
+			const std::string optimizerName(optimizer.GetName());
 
-		bin.Write(optimizerName);
-		if (optimizerName == "SGDOptimizer") {
-			const auto& sgdOptimizer = static_cast<const SGDOptimizer&>(optimizer);
+			bin.Write(optimizerName);
+			if (optimizerName == "SGDOptimizer") {
+				const auto& sgdOptimizer = static_cast<const SGDOptimizer&>(optimizer);
 
-			bin.Write(sgdOptimizer.GetLearningRate());
+				bin.Write(sgdOptimizer.GetLearningRate());
+			}
+
+			bin.Write(std::string(optimizer.GetLossFunction()->GetName()));
+		} else {
+			bin.Write("");
 		}
-
-		bin.Write(std::string(optimizer.GetLossFunction()->GetName()));
 	}
 
 	void ReadResourceObjects(BinaryAdaptor& bin, ResourceDirectory& resources);
