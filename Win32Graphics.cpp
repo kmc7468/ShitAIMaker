@@ -13,6 +13,7 @@
 #include <gdiplus.h>
 
 #define WM_REFLECT WM_USER + 0x1C00
+#define WM_RECEIVEMESSAGE WM_USER + 0x2000
 
 #ifdef _MSC_VER
 #	pragma warning(disable: 4250)
@@ -216,6 +217,19 @@ protected:
 		InvalidateRect(Handle, nullptr, TRUE);
 		UpdateWindow(Handle);
 	}
+	virtual void PALSendMessage(std::size_t messageId, std::optional<std::any> message) override {
+		assert(Handle != nullptr);
+
+		LPARAM lParam = 0;
+
+		if (message) {
+			std::any* heap = new std::any(std::move(*message));
+
+			lParam = reinterpret_cast<LPARAM>(heap);
+		}
+
+		SendMessage(Handle, WM_RECEIVEMESSAGE, static_cast<WPARAM>(messageId), lParam);
+	}
 
 private:
 	void CreateHandle() {
@@ -300,6 +314,22 @@ protected:
 			}
 
 			break;
+		}
+
+		case WM_RECEIVEMESSAGE: {
+			std::optional<std::any> argument;
+
+			if (lParam) {
+				std::any* const heap = reinterpret_cast<std::any*>(lParam);
+
+				argument.emplace(std::move(*heap));
+
+				delete heap;
+			}
+
+			GetEventHandler().OnReceiveMessage(*this, static_cast<std::size_t>(wParam), std::move(argument));
+
+			return 0;
 		}
 
 		case WM_DESTROY:

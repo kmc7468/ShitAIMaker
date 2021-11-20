@@ -25,6 +25,8 @@ void EventHandler::OnMouseWheel(Control&, int, int, MouseWheel) {}
 void EventHandler::OnKeyDown(Control&, Key) {}
 void EventHandler::OnKeyUp(Control&, Key) {}
 
+void EventHandler::OnReceiveMessage(Control&, std::size_t, std::optional<std::any>) {}
+
 Control::Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept
 	: m_EventHandler(std::move(eventHandler)) {}
 
@@ -141,6 +143,9 @@ void Control::Hide() {
 
 void Control::Invalidate() {
 	PALInvalidate();
+}
+void Control::SendMessage(std::size_t messageId, std::optional<std::any> message) {
+	PALSendMessage(messageId, std::move(message));
 }
 
 bool Menu::HasParent() const noexcept {

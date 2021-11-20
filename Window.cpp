@@ -1,6 +1,7 @@
 #include "Window.hpp"
 
 #include "Application.hpp"
+#include "Matrix.hpp"
 #include "NetworkViewer.hpp"
 #include "Optimizer.hpp"
 
@@ -8,11 +9,25 @@
 #include <chrono>
 #include <exception>
 #include <iomanip>
+#include <ostream>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
+
+#define SAM_DONETEST 0
+#define SAM_DONEFASTOPTIMIZING 1
+#define SAM_DONEOPTIMIZING 2
+
+namespace {
+	void PrintInputOrOutput(std::ostream& stream, const char* title, std::size_t index, const Matrix& matrix) {
+		stream << title << " #" << index << ": [";
+		for (std::size_t i = 0; i < matrix.GetRowSize(); ++i) {
+			stream << " " << matrix(i, 0);
+		}
+		stream << " ]";
+	}
+}
 
 class FunctionalMenuItemEventHandler final : public MenuItemEventHandler {
 private:
@@ -66,6 +81,29 @@ void MainWindowHandler::OnClose(Window&, bool& cancel) {
 void MainWindowHandler::OnResize(Control&) {
 	if (m_NetworkViewer) {
 		m_NetworkViewer->SetSize(m_Window->GetClientSize());
+	}
+}
+
+void MainWindowHandler::OnReceiveMessage(Control&, std::size_t message, std::optional<std::any> argument) {
+	switch (message) {
+	case SAM_DONETEST:
+		DoneTestOperation(std::any_cast<std::string>(*argument));
+
+		break;
+
+	case SAM_DONEFASTOPTIMIZING:
+		DoneFastOptimizingOperation(std::any_cast<std::string>(*argument));
+
+		break;
+
+	case SAM_DONEOPTIMIZING:
+		if (argument) {
+			DoneOptimizingOperation(std::any_cast<std::string>(*argument));
+		} else {
+			DoneOptimizingOperation();
+		}
+
+		break;
 	}
 }
 
@@ -170,46 +208,38 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			if (!trainData) return;
 
-			Network& network = m_Project->GetNetwork();
-			const auto lossFunction = network.GetOptimizer().GetLossFunction();
-			const std::size_t inputSize = network.GetInputSize();
-			const std::size_t outputSize = network.GetOutputSize();
+			StartOperation();
 
-			std::ostringstream resultOss;
+			m_Thread = std::jthread([=]() {
+				Network& network = m_Project->GetNetwork();
+				const auto lossFunction = network.GetOptimizer().GetLossFunction();
+				const std::size_t inputSize = network.GetInputSize();
+				const std::size_t outputSize = network.GetOutputSize();
 
-			resultOss << std::fixed;
+				std::ostringstream resultOss;
 
-			for (std::size_t i = 0; i < trainData->size(); ++i) {
-				if (i > 0) {
-					resultOss << "\n\n";
+				resultOss << std::fixed;
+
+				for (std::size_t i = 0; i < trainData->size(); ++i) {
+					if (i > 0) {
+						resultOss << "\n\n";
+					}
+
+					const Matrix output = network.Forward((*trainData)[i].first);
+					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+
+					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "출력", i, output);
+					resultOss << " (MSE " << mse << ')';
 				}
 
-				const Matrix output = network.Forward((*trainData)[i].first);
-				const float mse = lossFunction->Forward(output, (*trainData)[i].second);
-
-				resultOss << "입력 #" << i << ": [";
-				for (std::size_t j = 0; j < inputSize; ++j) {
-					resultOss << " " << (*trainData)[i].first(j, 0);
-				}
-				resultOss << " ]\n";
-
-				resultOss << "정답 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << (*trainData)[i].second(j, 0);
-				}
-				resultOss << " ]\n";
-
-				resultOss << "출력 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << output(j, 0);
-				}
-				resultOss << " ] (MSE " << mse << ')';
-			}
-
-			MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "실행 결과", resultOss.str(),
-				MessageDialog::Information, MessageDialog::Ok);
-
-			messageDialog->Show();
+				m_Window->SendMessage(SAM_DONETEST, resultOss.str());
+			});
 		})));
 
 	network->AddSubItem(MenuItemSeparatorRef());
@@ -227,65 +257,52 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			if (!epoch) return;
 
-			Network& network = m_Project->GetNetwork();
-			const auto lossFunction = network.GetOptimizer().GetLossFunction();
-			const std::size_t inputSize = network.GetInputSize();
-			const std::size_t outputSize = network.GetOutputSize();
+			StartOperation();
 
-			std::vector<std::pair<Matrix, float>> befores;
+			m_Thread = std::jthread([=]() {
+				Network& network = m_Project->GetNetwork();
+				const auto lossFunction = network.GetOptimizer().GetLossFunction();
+				const std::size_t inputSize = network.GetInputSize();
+				const std::size_t outputSize = network.GetOutputSize();
 
-			for (const auto& [input, answer] : *trainData) {
-				Matrix output = network.Forward(input);
-				const float mse = lossFunction->Forward(output, answer);
+				std::vector<std::pair<Matrix, float>> befores;
 
-				befores.push_back(std::make_pair(std::move(output), mse));
-			}
+				for (const auto& [input, answer] : *trainData) {
+					Matrix output = network.Forward(input);
+					const float mse = lossFunction->Forward(output, answer);
 
-			network.Optimize(*trainData, static_cast<std::size_t>(*epoch));
-
-			m_NetworkViewer->Invalidate();
-
-			std::ostringstream resultOss;
-
-			resultOss << std::fixed;
-
-			for (std::size_t i = 0; i < trainData->size(); ++i) {
-				if (i > 0) {
-					resultOss << "\n\n";
+					befores.push_back(std::make_pair(std::move(output), mse));
 				}
 
-				const Matrix output = network.Forward((*trainData)[i].first);
-				const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+				network.Optimize(*trainData, static_cast<std::size_t>(*epoch));
 
-				resultOss << "입력 #" << i << ": [";
-				for (std::size_t j = 0; j < inputSize; ++j) {
-					resultOss << " " << (*trainData)[i].first(j, 0);
+				std::ostringstream resultOss;
+
+				resultOss << std::fixed;
+
+				for (std::size_t i = 0; i < trainData->size(); ++i) {
+					if (i > 0) {
+						resultOss << "\n\n";
+					}
+
+					const Matrix output = network.Forward((*trainData)[i].first);
+					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+
+					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
+					resultOss << " (MSE " << befores[i].second << ")\n";
+
+					PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
+					resultOss << " (MSE " << mse << ')';
 				}
-				resultOss << " ]\n";
 
-				resultOss << "정답 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << (*trainData)[i].second(j, 0);
-				}
-				resultOss << " ]\n";
-
-				resultOss << "학습 전 출력 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << befores[i].first(j, 0);
-				}
-				resultOss << " ] (MSE " << befores[i].second << ")\n";
-
-				resultOss << "학습 후 출력 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << output(j, 0);
-				}
-				resultOss << " ] (MSE " << mse << ')';
-			}
-
-			MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", resultOss.str(),
-				MessageDialog::Information, MessageDialog::Ok);
-
-			messageDialog->Show();
+				m_Window->SendMessage(SAM_DONEFASTOPTIMIZING, resultOss.str());
+			});
 		})));
 	network->AddSubItem(MenuItemRef("학습 및 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -301,74 +318,67 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			if (!epoch) return;
 
-			Network& network = m_Project->GetNetwork();
-			const auto lossFunction = network.GetOptimizer().GetLossFunction();
-			const std::size_t inputSize = network.GetInputSize();
-			const std::size_t outputSize = network.GetOutputSize();
+			StartOperation();
 
-			std::vector<std::pair<Matrix, float>> befores;
+			m_Thread = std::jthread([=]() {
+				Network& network = m_Project->GetNetwork();
+				const auto lossFunction = network.GetOptimizer().GetLossFunction();
+				const std::size_t inputSize = network.GetInputSize();
+				const std::size_t outputSize = network.GetOutputSize();
 
-			for (const auto& [input, answer] : *trainData) {
-				Matrix output = network.Forward(input);
-				const float mse = lossFunction->Forward(output, answer);
+				std::vector<std::pair<Matrix, float>> befores;
 
-				befores.push_back(std::make_pair(std::move(output), mse));
-			}
+				for (const auto& [input, answer] : *trainData) {
+					Matrix output = network.Forward(input);
+					const float mse = lossFunction->Forward(output, answer);
 
-			const std::size_t defaultEpoch = *epoch / 10;
-			const std::size_t lastEpoch = defaultEpoch + *epoch % 10;
-
-			for (std::size_t i = 0; i < 10; ++i) {
-				using namespace std::chrono_literals;
-
-				network.Optimize(*trainData, i < 9 ? defaultEpoch : lastEpoch);
-
-				m_NetworkViewer->Invalidate();
-
-				std::this_thread::sleep_for(100ms);
-			}
-
-			std::ostringstream resultOss;
-
-			resultOss << std::fixed;
-
-			for (std::size_t i = 0; i < trainData->size(); ++i) {
-				if (i > 0) {
-					resultOss << "\n\n";
+					befores.push_back(std::make_pair(std::move(output), mse));
 				}
 
-				const Matrix output = network.Forward((*trainData)[i].first);
-				const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+				const std::size_t defaultEpoch = *epoch / 10;
+				const std::size_t lastEpoch = defaultEpoch + *epoch % 10;
 
-				resultOss << "입력 #" << i << ": [";
-				for (std::size_t j = 0; j < inputSize; ++j) {
-					resultOss << " " << (*trainData)[i].first(j, 0);
+				if (defaultEpoch == 0) {
+					network.Optimize(*trainData, lastEpoch);
+				} else {
+					for (std::size_t i = 0; i < 10; ++i) {
+						using namespace std::chrono_literals;
+
+						network.Optimize(*trainData, i < 9 ? defaultEpoch : lastEpoch);
+
+						m_Window->SendMessage(SAM_DONEOPTIMIZING);
+
+						std::this_thread::sleep_for(100ms);
+					}
 				}
-				resultOss << " ]\n";
 
-				resultOss << "정답 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << (*trainData)[i].second(j, 0);
+				std::ostringstream resultOss;
+
+				resultOss << std::fixed;
+
+				for (std::size_t i = 0; i < trainData->size(); ++i) {
+					if (i > 0) {
+						resultOss << "\n\n";
+					}
+
+					const Matrix output = network.Forward((*trainData)[i].first);
+					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+
+					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+					resultOss << '\n';
+
+					PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
+					resultOss << " (MSE " << befores[i].second << ")\n";
+
+					PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
+					resultOss << " (MSE " << mse << ')';
 				}
-				resultOss << " ]\n";
 
-				resultOss << "학습 전 출력 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << befores[i].first(j, 0);
-				}
-				resultOss << " ] (MSE " << befores[i].second << ")\n";
-
-				resultOss << "학습 후 출력 #" << i << ": [";
-				for (std::size_t j = 0; j < outputSize; ++j) {
-					resultOss << " " << output(j, 0);
-				}
-				resultOss << " ] (MSE " << mse << ')';
-			}
-
-			MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", resultOss.str(),
-				MessageDialog::Information, MessageDialog::Ok);
-
-			messageDialog->Show();
+				m_Window->SendMessage(SAM_DONEOPTIMIZING, resultOss.str());
+			});
 		})));
 	network->AddSubItem(MenuItemRef("옵티마이저 설정", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -510,6 +520,48 @@ std::optional<std::size_t> MainWindowHandler::AskEpoch(std::string dialogTitle) 
 	if (epochInputDialog->Show() == DialogResult::Ok)
 		return dynamic_cast<EpochInputDialogHandler&>(epochInputDialog->GetEventHandler()).GetEpoch();
 	else return std::nullopt;
+}
+
+void MainWindowHandler::StartOperation() {
+	// TODO: 메뉴 비활성화
+}
+void MainWindowHandler::DoneOperation() {
+	m_IsSaved = false;
+
+	UpdateText();
+
+	// TODO: 메뉴 활성화
+}
+void MainWindowHandler::DoneTestOperation(std::string result) {
+	DoneOperation();
+
+	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "테스트 결과", std::move(result),
+		MessageDialog::Information, MessageDialog::Ok);
+
+	messageDialog->Show();
+}
+void MainWindowHandler::DoneFastOptimizingOperation(std::string result) {
+	DoneOperation();
+
+	m_NetworkViewer->Invalidate();
+
+	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
+		MessageDialog::Information, MessageDialog::Ok);
+
+	messageDialog->Show();
+}
+void MainWindowHandler::DoneOptimizingOperation() {
+	m_NetworkViewer->Invalidate();
+}
+void MainWindowHandler::DoneOptimizingOperation(std::string result) {
+	DoneOperation();
+
+	m_NetworkViewer->Invalidate();
+
+	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
+		MessageDialog::Information, MessageDialog::Ok);
+
+	messageDialog->Show();
 }
 
 TrainDataInputDialogHandler::TrainDataInputDialogHandler(std::size_t inputSize, std::size_t outputSize) noexcept

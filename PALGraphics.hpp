@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -157,6 +158,8 @@ public:
 
 	virtual void OnKeyDown(Control& control, Key key);
 	virtual void OnKeyUp(Control& control, Key key);
+
+	virtual void OnReceiveMessage(Control& control, std::size_t messageId, std::optional<std::any> message);
 };
 
 class Control {
@@ -210,6 +213,7 @@ public:
 	void Hide();
 
 	void Invalidate();
+	void SendMessage(std::size_t messageId, std::optional<std::any> message = std::nullopt);
 
 protected:
 	virtual void PALAddChild(Control& child) = 0;
@@ -228,6 +232,7 @@ protected:
 	virtual void PALSetEnabled(bool newEnabled) = 0;
 
 	virtual void PALInvalidate() = 0;
+	virtual void PALSendMessage(std::size_t messageId, std::optional<std::any> message) = 0;
 };
 
 class ControlRef final : public UniqueRef<Control> {
