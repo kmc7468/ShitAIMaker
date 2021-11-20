@@ -40,7 +40,7 @@ const Control& Control::GetChild(std::size_t index) const noexcept {
 Control& Control::GetChild(std::size_t index) noexcept {
 	return *m_Children[index];
 }
-std::size_t Control::GetChildrenCount() const noexcept {
+std::size_t Control::GetChildCount() const noexcept {
 	return m_Children.size();
 }
 Control& Control::AddChild(ControlRef&& child) {
@@ -121,6 +121,12 @@ std::string Control::GetText() const {
 }
 void Control::SetText(const std::string& newText) {
 	PALSetText(newText);
+}
+bool Control::GetEnabled() const {
+	return PALGetEnabled();
+}
+void Control::SetEnabled(bool newEnabled) {
+	PALSetEnabled(newEnabled);
 }
 
 void Control::Show() {
@@ -475,13 +481,16 @@ RenderingContext2DRef Graphics::GetContext2D() {
 
 Dialog::Dialog(std::string dialogTitle) noexcept
 	: m_DialogTitle(std::move(dialogTitle)) {}
-Dialog::Dialog(const Window& owner, std::string dialogTitle) noexcept
+Dialog::Dialog(Window& owner, std::string dialogTitle) noexcept
 	: m_Owner(&owner), m_DialogTitle(std::move(dialogTitle)) {}
 
 bool Dialog::HasOwner() const noexcept {
 	return m_Owner != nullptr;
 }
 const Window& Dialog::GetOwner() const noexcept {
+	return *m_Owner;
+}
+Window& Dialog::GetOwner() noexcept {
 	return *m_Owner;
 }
 std::string_view Dialog::GetDialogTitle() const noexcept {
@@ -512,7 +521,7 @@ MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button
 	return static_cast<MessageDialog::Button>(static_cast<int>(lhs) | static_cast<int>(rhs));
 }
 
-MessageDialogRef::MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title,
+MessageDialogRef::MessageDialogRef(Window& owner, std::string dialogTitle, std::string title,
 	std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons)
 	: UniqueRef(PALCreateMessageDialog(owner, std::move(dialogTitle), std::move(title),
 		std::move(message), icon, buttons)) {}
@@ -560,7 +569,7 @@ void OpenFileDialog::SetFileMustExist(bool newFileMustExist) noexcept {
 	m_FileMustExist = newFileMustExist;
 }
 
-OpenFileDialogRef::OpenFileDialogRef(const Window& owner, std::string dialogTitle)
+OpenFileDialogRef::OpenFileDialogRef(Window& owner, std::string dialogTitle)
 	: UniqueRef(PALCreateOpenFileDialog(owner, std::move(dialogTitle))) {}
 
 SaveFileDialog::SaveFileDialog() noexcept {}
@@ -572,5 +581,120 @@ void SaveFileDialog::SetOverWritePrompt(bool newOverWritePrompt) noexcept {
 	m_OverWritePrompt = newOverWritePrompt;
 }
 
-SaveFileDialogRef::SaveFileDialogRef(const Window& owner, std::string dialogTitle)
+SaveFileDialogRef::SaveFileDialogRef(Window& owner, std::string dialogTitle)
 	: UniqueRef(PALCreateSaveFileDialog(owner, std::move(dialogTitle))) {}
+
+void WindowDialogEventHandler::OnCreate(WindowDialog&) {}
+void WindowDialogEventHandler::OnDestroy(WindowDialog&) {}
+void WindowDialogEventHandler::OnPaint(WindowDialog&, Graphics&) {}
+
+class WindowDialogWindowEventHandler final : public virtual WindowEventHandler {
+private:
+	WindowDialog& m_WindowDialog;
+
+public:
+	WindowDialogWindowEventHandler(WindowDialog& windowDialog) noexcept
+		: m_WindowDialog(windowDialog) {}
+	WindowDialogWindowEventHandler(const WindowDialogWindowEventHandler&) = delete;
+	virtual ~WindowDialogWindowEventHandler() override = default;
+
+public:
+	WindowDialogWindowEventHandler& operator=(const WindowDialogWindowEventHandler&) = delete;
+
+public:
+	virtual void OnCreate(Control&) override {
+		m_WindowDialog.GetEventHandler().OnCreate(m_WindowDialog);
+	}
+	virtual void OnClose(Window&, bool&) override {
+		m_WindowDialog.m_IsRunning = false;
+		m_WindowDialog.m_Result = DialogResult::Cancel;
+
+		m_WindowDialog.GetOwner().SetEnabled(true);
+	}
+	virtual void OnDestroy(Control&) override {
+		m_WindowDialog.GetEventHandler().OnDestroy(m_WindowDialog);
+	}
+
+	virtual void OnPaint(Control&, Graphics& graphics) override {
+		m_WindowDialog.GetEventHandler().OnPaint(m_WindowDialog, graphics);
+	}
+};
+
+WindowDialog::WindowDialog(Window& owner, std::string dialogTitle,
+	std::unique_ptr<WindowDialogEventHandler>&& eventHandler)
+	: Dialog(owner, std::move(dialogTitle)), m_Window(std::make_unique<WindowDialogWindowEventHandler>(*this)),
+	m_EventHandler(std::move(eventHandler)) {
+	assert(m_EventHandler != nullptr);
+
+	m_Window->SetText(std::string(GetDialogTitle()));
+}
+
+DialogResult WindowDialog::Show() {
+	m_IsRunning = true;
+
+	m_Window->Show();
+	GetOwner().SetEnabled(false);
+
+	PALShow(m_IsRunning);
+
+	return m_Result;
+}
+
+const Control& WindowDialog::GetChild(std::size_t index) const noexcept {
+	return m_Window->GetChild(index);
+}
+Control& WindowDialog::GetChild(std::size_t index) noexcept {
+	return m_Window->GetChild(index);
+}
+std::size_t WindowDialog::GetChildCount() const noexcept {
+	return m_Window->GetChildCount();
+}
+Control& WindowDialog::AddChild(ControlRef&& child) {
+	return m_Window->AddChild(std::move(child));
+}
+void* WindowDialog::GetHandle() noexcept {
+	return m_Window->GetHandle();
+}
+
+std::pair<int, int> WindowDialog::GetSize() const {
+	return m_Window->GetSize();
+}
+void WindowDialog::SetSize(int newWidth, int newHeight) {
+	m_Window->SetSize(newWidth, newHeight);
+}
+void WindowDialog::SetSize(const std::pair<int, int>& newSize) {
+	m_Window->SetSize(newSize);
+}
+int WindowDialog::GetWidth() const {
+	return m_Window->GetWidth();
+}
+void WindowDialog::SetWidth(int newWidth) {
+	m_Window->SetWidth(newWidth);
+}
+int WindowDialog::GetHeight() const {
+	return m_Window->GetHeight();
+}
+void WindowDialog::SetHeight(int newHeight) {
+	m_Window->SetHeight(newHeight);
+}
+std::pair<int, int> WindowDialog::GetClientSize() const {
+	return m_Window->GetClientSize();
+}
+WindowDialogEventHandler& WindowDialog::GetEventHandler() noexcept {
+	return *m_EventHandler;
+}
+
+void WindowDialog::Invalidate() {
+	m_Window->Invalidate();
+}
+
+void WindowDialog::Close(DialogResult dialogResult) {
+	m_IsRunning = false;
+	m_Result = dialogResult;
+
+	m_Window->Close();
+}
+
+WindowDialogRef::WindowDialogRef(Window& owner, std::string dialogTitle,
+	std::unique_ptr<WindowDialogEventHandler>&& eventHandler)
+	: UniqueRef(std::make_unique<WindowDialog>(owner, std::move(dialogTitle), std::move(eventHandler))) {}

@@ -170,7 +170,7 @@ public:
 	Control& GetParent() noexcept;
 	const Control& GetChild(std::size_t index) const noexcept;
 	Control& GetChild(std::size_t index) noexcept;
-	std::size_t GetChildrenCount() const noexcept;
+	std::size_t GetChildCount() const noexcept;
 	Control& AddChild(ControlRef&& child);
 	void* GetHandle() noexcept;
 	EventHandler& GetEventHandler() noexcept;
@@ -194,6 +194,8 @@ public:
 	void SetVisibility(bool newVisibility);
 	std::string GetText() const;
 	void SetText(const std::string& newText);
+	bool GetEnabled() const;
+	void SetEnabled(bool newEnabled);
 
 	void Show();
 	void Hide();
@@ -213,6 +215,8 @@ protected:
 	virtual void PALSetVisibility(bool newVisibility) = 0;
 	virtual std::string PALGetText() const = 0;
 	virtual void PALSetText(const std::string& newText) = 0;
+	virtual bool PALGetEnabled() const = 0;
+	virtual void PALSetEnabled(bool newEnabled) = 0;
 
 	virtual void PALInvalidate() = 0;
 };
@@ -726,12 +730,12 @@ enum class DialogResult {
 
 class Dialog {
 private:
-	const Window* m_Owner = nullptr;
+	Window* m_Owner = nullptr;
 	std::string m_DialogTitle;
 
 public:
 	explicit Dialog(std::string dialogTitle) noexcept;
-	Dialog(const Window& owner, std::string dialogTitle) noexcept;
+	Dialog(Window& owner, std::string dialogTitle) noexcept;
 	Dialog(const Dialog&) = delete;
 	virtual ~Dialog() = default;
 
@@ -741,6 +745,7 @@ public:
 public:
 	bool HasOwner() const noexcept;
 	const Window& GetOwner() const noexcept;
+	Window& GetOwner() noexcept;
 	std::string_view GetDialogTitle() const noexcept;
 
 public:
@@ -797,11 +802,11 @@ class MessageDialogRef final : public UniqueRef<MessageDialog> {
 public:
 	using UniqueRef::UniqueRef;
 
-	MessageDialogRef(const Window& owner, std::string dialogTitle, std::string title, std::string message,
+	MessageDialogRef(Window& owner, std::string dialogTitle, std::string title, std::string message,
 		MessageDialog::Icon icon = MessageDialog::None, MessageDialog::Button buttons = MessageDialog::Ok);
 
 private:
-	std::unique_ptr<MessageDialog> PALCreateMessageDialog(const Window& owner, std::string dialogTitle,
+	std::unique_ptr<MessageDialog> PALCreateMessageDialog(Window& owner, std::string dialogTitle,
 		std::string title, std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons);
 };
 
@@ -856,10 +861,10 @@ class OpenFileDialogRef final : public UniqueRef<OpenFileDialog> {
 public:
 	using UniqueRef::UniqueRef;
 
-	OpenFileDialogRef(const Window& owner, std::string dialogTitle);
+	OpenFileDialogRef(Window& owner, std::string dialogTitle);
 
 private:
-	std::unique_ptr<OpenFileDialog> PALCreateOpenFileDialog(const Window& owner, std::string dialogTitle);
+	std::unique_ptr<OpenFileDialog> PALCreateOpenFileDialog(Window& owner, std::string dialogTitle);
 };
 
 class SaveFileDialog : public virtual FileDialog {
@@ -883,8 +888,82 @@ class SaveFileDialogRef final : public UniqueRef<SaveFileDialog> {
 public:
 	using UniqueRef::UniqueRef;
 
-	SaveFileDialogRef(const Window& owner, std::string dialogTitle);
+	SaveFileDialogRef(Window& owner, std::string dialogTitle);
 
 private:
-	std::unique_ptr<SaveFileDialog> PALCreateSaveFileDialog(const Window& owner, std::string dialogTitle);
+	std::unique_ptr<SaveFileDialog> PALCreateSaveFileDialog(Window& owner, std::string dialogTitle);
+};
+
+class WindowDialog;
+
+class WindowDialogEventHandler {
+public:
+	WindowDialogEventHandler() noexcept = default;
+	WindowDialogEventHandler(const WindowDialogEventHandler&) = delete;
+	virtual ~WindowDialogEventHandler() = default;
+
+public:
+	WindowDialogEventHandler& operator=(const WindowDialogEventHandler&) = delete;
+
+public:
+	virtual void OnCreate(WindowDialog& dialog);
+	virtual void OnDestroy(WindowDialog& dialog);
+	virtual void OnPaint(WindowDialog& dialog, Graphics& graphics);
+};
+
+class WindowDialogWindowEventHandler;
+
+class WindowDialog final : public virtual Dialog {
+	friend class WindowDialogWindowEventHandler;
+
+private:
+	WindowRef m_Window;
+	std::unique_ptr<WindowDialogEventHandler> m_EventHandler;
+
+	bool m_IsRunning = false;
+	DialogResult m_Result;
+
+public:
+	WindowDialog(Window& owner, std::string dialogTitle,
+		std::unique_ptr<WindowDialogEventHandler>&& eventHandler);
+	WindowDialog(const WindowDialog&) = delete;
+	virtual ~WindowDialog() override = default;
+
+public:
+	WindowDialog& operator=(const WindowDialog&) = delete;
+
+public:
+	virtual DialogResult Show() override;
+
+private:
+	void PALShow(bool& isRunning);
+
+public:
+	const Control& GetChild(std::size_t index) const noexcept;
+	Control& GetChild(std::size_t index) noexcept;
+	std::size_t GetChildCount() const noexcept;
+	Control& AddChild(ControlRef&& child);
+	void* GetHandle() noexcept;
+	WindowDialogEventHandler& GetEventHandler() noexcept;
+
+	std::pair<int, int> GetSize() const;
+	void SetSize(int newWidth, int newHeight);
+	void SetSize(const std::pair<int, int>& newSize);
+	int GetWidth() const;
+	void SetWidth(int newWidth);
+	int GetHeight() const;
+	void SetHeight(int newHeight);
+	std::pair<int, int> GetClientSize() const;
+
+	void Invalidate();
+
+	void Close(DialogResult dialogResult);
+};
+
+class WindowDialogRef final : public UniqueRef<WindowDialog> {
+public:
+	using UniqueRef::UniqueRef;
+
+	WindowDialogRef(Window& owner, std::string dialogTitle,
+		std::unique_ptr<WindowDialogEventHandler>&& eventHandler);
 };

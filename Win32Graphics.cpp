@@ -95,7 +95,7 @@ protected:
 		Win32Control& childControl = dynamic_cast<Win32Control&>(child);
 		assert(childControl.CreateParams.Style & WS_CHILD);
 
-		childControl.CreateParams.Menu = reinterpret_cast<HMENU>(GetChildrenCount() - 1);
+		childControl.CreateParams.Menu = reinterpret_cast<HMENU>(GetChildCount() - 1);
 
 		if (Handle) {
 			childControl.CreateHandle();
@@ -199,6 +199,16 @@ protected:
 			CreateParams.WindowName = newText;
 		}
 	}
+	virtual bool PALGetEnabled() const override {
+		assert(Handle != nullptr);
+
+		return IsWindowEnabled(Handle);
+	}
+	virtual void PALSetEnabled(bool newEnabled) override {
+		assert(Handle != nullptr);
+
+		EnableWindow(Handle, newEnabled ? TRUE : FALSE);
+	}
 
 	virtual void PALInvalidate() override {
 		assert(Handle != nullptr);
@@ -208,7 +218,7 @@ protected:
 
 private:
 	void CreateHandle() {
-		const std::size_t childrenCount = GetChildrenCount();
+		const std::size_t childrenCount = GetChildCount();
 
 		Handle = CreateWindowA(CreateParams.ClassName.data(), CreateParams.WindowName.data(),
 			CreateParams.Style, CreateParams.Location.first, CreateParams.Location.second,
@@ -264,7 +274,7 @@ protected:
 			break;
 
 		case WM_DESTROY:
-			GetEventHandler().OnCreate(*this);
+			GetEventHandler().OnDestroy(*this);
 
 			break;
 
@@ -884,11 +894,9 @@ Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceC
 	m_Graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
 }
 
-#undef GetMessage
-
 class Win32MessageDialog final : public MessageDialog {
 public:
-	Win32MessageDialog(const Window& owner, std::string dialogTitle, std::string title, std::string message,
+	Win32MessageDialog(Window& owner, std::string dialogTitle, std::string title, std::string message,
 		Icon icon, Button buttons)
 		: Dialog(owner, std::move(dialogTitle)), MessageDialog(std::move(title), std::move(message), icon, buttons) {}
 	Win32MessageDialog(const Win32MessageDialog&) = delete;
@@ -898,71 +906,10 @@ public:
 	Win32MessageDialog& operator=(const Win32MessageDialog&) = delete;
 
 public:
-	virtual DialogResult PALShow() override {
-		const Button buttons = GetButtons();
-		TASKDIALOG_COMMON_BUTTON_FLAGS buttonsForApi = 0;
-
-		if (buttons & Button::Ok) {
-			buttonsForApi |= TDCBF_OK_BUTTON;
-		}
-		if (buttons & Button::Yes) {
-			buttonsForApi |= TDCBF_YES_BUTTON;
-		}
-		if (buttons & Button::No) {
-			buttonsForApi |= TDCBF_NO_BUTTON;
-		}
-		if (buttons & Button::Cancel) {
-			buttonsForApi |= TDCBF_CANCEL_BUTTON;
-		}
-		if (buttons & Button::Retry) {
-			buttonsForApi |= TDCBF_RETRY_BUTTON;
-		}
-		if (buttons & Button::Close) {
-			buttonsForApi |= TDCBF_CLOSE_BUTTON;
-		}
-
-		const Icon icon = GetIcon();
-		PCWSTR iconForApi = nullptr;
-
-		switch (icon) {
-		case Icon::None: break;
-
-		case Icon::Information:
-			iconForApi = TD_INFORMATION_ICON;
-			break;
-
-		case Icon::Warning:
-			iconForApi = TD_WARNING_ICON;
-			break;
-
-		case Icon::Error:
-			iconForApi = TD_ERROR_ICON;
-			break;
-
-		default:
-			assert(false);
-			break;
-		}
-
-		int button;
-		const HRESULT result = TaskDialog(dynamic_cast<const Win32Window&>(GetOwner()).Handle, g_Instance,
-			EncodeToWideCharString(std::string(GetDialogTitle()), CP_ACP).data(),
-			EncodeToWideCharString(std::string(GetTitle()), CP_ACP).data(),
-			EncodeToWideCharString(std::string(GetMessage()), CP_ACP).data(), buttonsForApi, iconForApi, &button);
-		if (result != S_OK) throw std::runtime_error("Failed to show a message dialog");
-
-		switch (button) {
-		case IDOK: return DialogResult::Ok;
-		case IDYES: return DialogResult::Yes;
-		case IDNO: return DialogResult::No;
-		case IDCANCEL: return DialogResult::Cancel;
-		case IDRETRY: return DialogResult::Retry;
-		default: return DialogResult::Cancel;
-		}
-	}
+	virtual DialogResult PALShow() override;
 };
 
-std::unique_ptr<MessageDialog> MessageDialogRef::PALCreateMessageDialog(const Window& owner, std::string dialogTitle,
+std::unique_ptr<MessageDialog> MessageDialogRef::PALCreateMessageDialog(Window& owner, std::string dialogTitle,
 	std::string title, std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons) {
 	return std::make_unique<Win32MessageDialog>(owner, std::move(dialogTitle), std::move(title), std::move(message),
 		icon, buttons);
@@ -1015,7 +962,7 @@ private:
 
 class Win32OpenFileDialog final : public OpenFileDialog, public Win32FileDialog {
 public:
-	Win32OpenFileDialog(const Window& owner, std::string dialogTitle) noexcept
+	Win32OpenFileDialog(Window& owner, std::string dialogTitle) noexcept
 		: Dialog(owner, std::move(dialogTitle)) {}
 	Win32OpenFileDialog(const Win32OpenFileDialog&) = delete;
 	virtual ~Win32OpenFileDialog() override = default;
@@ -1037,13 +984,13 @@ protected:
 	}
 };
 
-std::unique_ptr<OpenFileDialog> OpenFileDialogRef::PALCreateOpenFileDialog(const Window& owner, std::string dialogTitle) {
+std::unique_ptr<OpenFileDialog> OpenFileDialogRef::PALCreateOpenFileDialog(Window& owner, std::string dialogTitle) {
 	return std::make_unique<Win32OpenFileDialog>(owner, std::move(dialogTitle));
 }
 
 class Win32SaveFileDialog final : public SaveFileDialog, public Win32FileDialog {
 public:
-	Win32SaveFileDialog(const Window& owner, std::string dialogTitle) noexcept
+	Win32SaveFileDialog(Window& owner, std::string dialogTitle) noexcept
 		: Dialog(owner, std::move(dialogTitle)) {}
 	Win32SaveFileDialog(const Win32SaveFileDialog&) = delete;
 	virtual ~Win32SaveFileDialog() override = default;
@@ -1065,7 +1012,98 @@ protected:
 	}
 };
 
-std::unique_ptr<SaveFileDialog> SaveFileDialogRef::PALCreateSaveFileDialog(const Window& owner, std::string dialogTitle) {
+std::unique_ptr<SaveFileDialog> SaveFileDialogRef::PALCreateSaveFileDialog(Window& owner, std::string dialogTitle) {
 	return std::make_unique<Win32SaveFileDialog>(owner, std::move(dialogTitle));
+}
+
+void WindowDialog::PALShow(bool& isRunning) {
+	const HWND dialogHandle = dynamic_cast<Win32Window&>(m_Window.Get()).Handle;
+
+	UINT style = static_cast<UINT>(GetWindowLongPtr(dialogHandle, GWL_STYLE));
+
+	style &= ~WS_MINIMIZEBOX;
+	style &= ~WS_MAXIMIZEBOX;
+
+	SetWindowLongPtr(dialogHandle, GWL_STYLE, static_cast<LONG_PTR>(style));
+	SetWindowLongPtr(dialogHandle, GWLP_HWNDPARENT,
+		reinterpret_cast<LONG_PTR>(dynamic_cast<Win32Window&>(GetOwner()).Handle));
+
+	while (isRunning) {
+		MSG message;
+
+		if (GetMessage(&message, nullptr, 0, 0)) {
+			TranslateMessage(&message);
+			DispatchMessage(&message);
+		} else {
+			isRunning = false;
+
+			PostQuitMessage(static_cast<int>(message.wParam));
+		}
+	}
+}
+
+#undef GetMessage
+
+DialogResult Win32MessageDialog::PALShow() {
+	const Button buttons = GetButtons();
+	TASKDIALOG_COMMON_BUTTON_FLAGS buttonsForApi = 0;
+
+	if (buttons & Button::Ok) {
+		buttonsForApi |= TDCBF_OK_BUTTON;
+	}
+	if (buttons & Button::Yes) {
+		buttonsForApi |= TDCBF_YES_BUTTON;
+	}
+	if (buttons & Button::No) {
+		buttonsForApi |= TDCBF_NO_BUTTON;
+	}
+	if (buttons & Button::Cancel) {
+		buttonsForApi |= TDCBF_CANCEL_BUTTON;
+	}
+	if (buttons & Button::Retry) {
+		buttonsForApi |= TDCBF_RETRY_BUTTON;
+	}
+	if (buttons & Button::Close) {
+		buttonsForApi |= TDCBF_CLOSE_BUTTON;
+	}
+
+	const Icon icon = GetIcon();
+	PCWSTR iconForApi = nullptr;
+
+	switch (icon) {
+	case Icon::None: break;
+
+	case Icon::Information:
+		iconForApi = TD_INFORMATION_ICON;
+		break;
+
+	case Icon::Warning:
+		iconForApi = TD_WARNING_ICON;
+		break;
+
+	case Icon::Error:
+		iconForApi = TD_ERROR_ICON;
+		break;
+
+	default:
+		assert(false);
+		break;
+	}
+
+	int button;
+	const HRESULT result = TaskDialog(dynamic_cast<const Win32Window&>(GetOwner()).Handle, g_Instance,
+		EncodeToWideCharString(std::string(GetDialogTitle()), CP_ACP).data(),
+		EncodeToWideCharString(std::string(GetTitle()), CP_ACP).data(),
+		EncodeToWideCharString(std::string(GetMessage()), CP_ACP).data(), buttonsForApi, iconForApi, &button);
+	if (result != S_OK) throw std::runtime_error("Failed to show a message dialog");
+
+	switch (button) {
+	case IDOK: return DialogResult::Ok;
+	case IDYES: return DialogResult::Yes;
+	case IDNO: return DialogResult::No;
+	case IDCANCEL: return DialogResult::Cancel;
+	case IDRETRY: return DialogResult::Retry;
+	default: return DialogResult::Cancel;
+	}
 }
 #endif
