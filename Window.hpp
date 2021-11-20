@@ -45,5 +45,5 @@ private:
 private:
 	DialogResult AskDiscardChanges();
 	void CreateNewProject();
-	void SaveProject();
+	bool SaveProject(bool saveAs = false);
 };

@@ -3,6 +3,7 @@
 #include "Application.hpp"
 #include "Optimizer.hpp"
 
+#include <exception>
 #include <string>
 #include <utility>
 
@@ -16,12 +17,11 @@ void FunctionalMenuItemEventHandler::OnClick(MenuItem& menuItem) {
 }
 
 void MainWindowHandler::OnCreate(Control& control) {
-	CreateNewProject();
-
 	m_Window = &dynamic_cast<Window&>(control);
 
 	m_Window->SetMenu(CreateMenu());
-	UpdateText();
+
+	CreateNewProject();
 }
 void MainWindowHandler::OnClose(Window&, bool& cancel) {
 	switch (AskDiscardChanges()) {
@@ -61,20 +61,58 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	file->AddSubItem(MenuItemRef("프로젝트 열기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			switch (AskDiscardChanges()) {
+			case DialogResult::Yes:
+				SaveProject();
+				break;
+
+			case DialogResult::No:
+				break;
+
+			case DialogResult::Cancel:
+				return;
+			}
+
+			OpenFileDialogRef openFileDialog(*m_Window, "프로젝트 열기");
+
+			openFileDialog->AddFilter("프로젝트 파일(*.samp)", "*.samp");
+			openFileDialog->AddFilter("모든 파일(*.*)", "*.*");
+
+			if (openFileDialog->Show() != DialogResult::Ok) return;
+
+			try {
+				auto newProject = std::make_unique<Project>();
+
+				newProject->Load(openFileDialog->GetPath());
+
+				m_Project = std::move(newProject);
+				m_IsSaved = true;
+
+				UpdateText();
+			} catch (const std::exception& exception) {
+				MessageDialogRef dialog(*m_Window, SAM_APPNAME, "프로젝트를 열지 못했습니다",
+					std::string("올바른 ShitAIMaker 프로젝트 파일인지 확인해 보세요. (") + exception.what() + ")",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				dialog->Show();
+			}
 		})));
 	file->AddSubItem(MenuItemRef("프로젝트 저장", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			if (!m_IsSaved) {
+			if (!m_IsSaved || m_Project->GetPath().empty()) {
 				SaveProject();
 			}
+		})));
+	file->AddSubItem(MenuItemRef("프로젝트 다른 이름으로 저장", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			SaveProject(true);
 		})));
 	file->AddSubItem(MenuItemRef("종료", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			switch (AskDiscardChanges()) {
 			case DialogResult::Yes:
-				SaveProject();
-				break;
+				if (SaveProject()) break;
+				else return;
 
 			case DialogResult::No:
 				break;
@@ -160,11 +198,36 @@ void MainWindowHandler::CreateNewProject() {
 	m_Project->SetName("제목 없음");
 
 	m_IsSaved = true;
-}
-void MainWindowHandler::SaveProject() {
-	// TODO
-
-	m_IsSaved = true;
 
 	UpdateText();
+}
+bool MainWindowHandler::SaveProject(bool saveAs) {
+	if (saveAs || m_Project->GetPath().empty()) {
+		SaveFileDialogRef saveFileDialog(*m_Window, saveAs ? "프로젝트 다른 이름으로 저장" : "프로젝트 저장");
+
+		saveFileDialog->AddFilter("프로젝트 파일(*.samp)", "*.samp");
+		saveFileDialog->AddFilter("모든 파일(*.*)", "*.*");
+
+		if (saveFileDialog->Show() != DialogResult::Ok) return false;
+
+		m_Project->SetPath(saveFileDialog->GetPath());
+	}
+
+	try {
+		m_Project->Save();
+
+		m_IsSaved = true;
+
+		UpdateText();
+
+		return true;
+	} catch (const std::exception& exception) {
+		MessageDialogRef dialog(*m_Window, SAM_APPNAME, "프로젝트를 저장하지 못했습니다",
+			std::string("저장하려는 경로가 올바른지 확인해 보세요. (") + exception.what() + ")",
+			MessageDialog::Error, MessageDialog::Ok);
+
+		dialog->Show();
+
+		return false;
+	}
 }

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <stdexcept>
 
 void InitializeGraphics() {
 	PALInitializeGraphics();
@@ -235,7 +236,11 @@ MenuItemSeparator::MenuItemSeparator() noexcept {}
 MenuItemSeparatorRef::MenuItemSeparatorRef()
 	: UniqueRef(PALCreateMenuItemSeparator()) {}
 
+PaintableEventHandler::PaintableEventHandler() noexcept {}
+
 void PaintableEventHandler::OnPaint(Control&, Graphics&) {}
+
+WindowEventHandler::WindowEventHandler() noexcept {}
 
 void WindowEventHandler::OnClose(Window&, bool&) {}
 
@@ -301,6 +306,8 @@ int RunEventLoop(WindowRef& mainWindow) {
 
 	return PALRunEventLoop(&mainWindow);
 }
+
+ClickableEventHandler::ClickableEventHandler() noexcept {}
 
 void ClickableEventHandler::OnClick(Control&) {}
 
@@ -475,3 +482,61 @@ MessageDialogRef::MessageDialogRef(const Window& owner, std::string dialogTitle,
 	std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons)
 	: UniqueRef(PALCreateMessageDialog(owner, std::move(dialogTitle), std::move(title),
 		std::move(message), icon, buttons)) {}
+
+FileDialog::FileDialog() noexcept {}
+
+const std::pair<std::string, std::string>& FileDialog::GetFilter(std::size_t index) const noexcept {
+	return m_Filters[index];
+}
+std::vector<std::pair<std::string, std::string>> FileDialog::GetAllFilters() const {
+	return m_Filters;
+}
+std::size_t FileDialog::GetFilterCount() const noexcept {
+	return m_Filters.size();
+}
+void FileDialog::AddFilter(std::string description, std::string pattern) {
+	const auto duplicated = std::find_if(m_Filters.begin(), m_Filters.end(),
+		[&](const auto& filter) {
+			return filter.first == description;
+		});
+	assert(duplicated == m_Filters.end());
+
+	m_Filters.push_back(std::make_pair(std::move(description), std::move(pattern)));
+}
+const std::filesystem::path& FileDialog::GetPath() const noexcept {
+	return m_Path;
+}
+
+void FileDialog::SetPath(std::filesystem::path newPath) noexcept {
+	m_Path = std::move(newPath);
+}
+
+DialogResult FileDialog::Show() {
+	assert(!m_Filters.empty());
+
+	return PALShow();
+}
+
+OpenFileDialog::OpenFileDialog() noexcept {}
+
+bool OpenFileDialog::GetFileMustExist() const noexcept {
+	return m_FileMustExist;
+}
+void OpenFileDialog::SetFileMustExist(bool newFileMustExist) noexcept {
+	m_FileMustExist = newFileMustExist;
+}
+
+OpenFileDialogRef::OpenFileDialogRef(const Window& owner, std::string dialogTitle)
+	: UniqueRef(PALCreateOpenFileDialog(owner, std::move(dialogTitle))) {}
+
+SaveFileDialog::SaveFileDialog() noexcept {}
+
+bool SaveFileDialog::GetOverWritePrompt() const noexcept {
+	return m_OverWritePrompt;
+}
+void SaveFileDialog::SetOverWritePrompt(bool newOverWritePrompt) noexcept {
+	m_OverWritePrompt = newOverWritePrompt;
+}
+
+SaveFileDialogRef::SaveFileDialogRef(const Window& owner, std::string dialogTitle)
+	: UniqueRef(PALCreateSaveFileDialog(owner, std::move(dialogTitle))) {}

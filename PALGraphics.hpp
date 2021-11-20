@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -358,7 +359,7 @@ class Graphics;
 
 class PaintableEventHandler : public virtual EventHandler {
 public:
-	PaintableEventHandler() noexcept = default;
+	PaintableEventHandler() noexcept;
 	PaintableEventHandler(const PaintableEventHandler&) = delete;
 	virtual ~PaintableEventHandler() override = default;
 
@@ -371,7 +372,7 @@ public:
 
 class WindowEventHandler : public virtual PaintableEventHandler {
 public:
-	WindowEventHandler() noexcept = default;
+	WindowEventHandler() noexcept;
 	WindowEventHandler(const WindowEventHandler&) = delete;
 	virtual ~WindowEventHandler() override = default;
 
@@ -431,7 +432,7 @@ int PALRunEventLoop(WindowRef* mainWindow);
 
 class ClickableEventHandler : public virtual EventHandler {
 public:
-	ClickableEventHandler() noexcept = default;
+	ClickableEventHandler() noexcept;
 	ClickableEventHandler(const ClickableEventHandler&) = delete;
 	virtual ~ClickableEventHandler() override = default;
 
@@ -750,4 +751,88 @@ public:
 private:
 	std::unique_ptr<MessageDialog> PALCreateMessageDialog(const Window& owner, std::string dialogTitle,
 		std::string title, std::string message, MessageDialog::Icon icon, MessageDialog::Button buttons);
+};
+
+class FileDialog : public virtual Dialog {
+private:
+	std::vector<std::pair<std::string, std::string>> m_Filters;
+	std::filesystem::path m_Path;
+
+public:
+	FileDialog() noexcept;
+	FileDialog(const MessageDialog&) = delete;
+	virtual ~FileDialog() override = default;
+
+public:
+	FileDialog& operator=(const FileDialog&) = delete;
+
+public:
+	const std::pair<std::string, std::string>& GetFilter(std::size_t index) const noexcept;
+	std::vector<std::pair<std::string, std::string>> GetAllFilters() const;
+	std::size_t GetFilterCount() const noexcept;
+	void AddFilter(std::string description, std::string pattern);
+	const std::filesystem::path& GetPath() const noexcept;
+
+protected:
+	void SetPath(std::filesystem::path newPath) noexcept;
+
+public:
+	virtual DialogResult Show() override;
+
+protected:
+	virtual DialogResult PALShow() = 0;
+};
+
+class OpenFileDialog : public virtual FileDialog {
+private:
+	bool m_FileMustExist = true;
+
+public:
+	OpenFileDialog() noexcept;
+	OpenFileDialog(const OpenFileDialog&) = delete;
+	virtual ~OpenFileDialog() override = default;
+
+public:
+	OpenFileDialog& operator=(const OpenFileDialog&) = delete;
+
+public:
+	bool GetFileMustExist() const noexcept;
+	void SetFileMustExist(bool newFileMustExist) noexcept;
+};
+
+class OpenFileDialogRef final : public UniqueRef<OpenFileDialog> {
+public:
+	using UniqueRef::UniqueRef;
+
+	OpenFileDialogRef(const Window& owner, std::string dialogTitle);
+
+private:
+	std::unique_ptr<OpenFileDialog> PALCreateOpenFileDialog(const Window& owner, std::string dialogTitle);
+};
+
+class SaveFileDialog : public virtual FileDialog {
+private:
+	bool m_OverWritePrompt = true;
+
+public:
+	SaveFileDialog() noexcept;
+	SaveFileDialog(const SaveFileDialog&) = delete;
+	virtual ~SaveFileDialog() override = default;
+
+public:
+	SaveFileDialog& operator=(const SaveFileDialog&) = delete;
+
+public:
+	bool GetOverWritePrompt() const noexcept;
+	void SetOverWritePrompt(bool newOverWritePrompt) noexcept;
+};
+
+class SaveFileDialogRef final : public UniqueRef<SaveFileDialog> {
+public:
+	using UniqueRef::UniqueRef;
+
+	SaveFileDialogRef(const Window& owner, std::string dialogTitle);
+
+private:
+	std::unique_ptr<SaveFileDialog> PALCreateSaveFileDialog(const Window& owner, std::string dialogTitle);
 };

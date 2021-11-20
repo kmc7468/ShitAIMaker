@@ -798,4 +798,105 @@ std::unique_ptr<MessageDialog> MessageDialogRef::PALCreateMessageDialog(const Wi
 	return std::make_unique<Win32MessageDialog>(owner, std::move(dialogTitle), std::move(title), std::move(message),
 		icon, buttons);
 }
+
+#undef GetOpenFileName
+
+class Win32FileDialog : public virtual FileDialog {
+public:
+	Win32FileDialog() noexcept {}
+	Win32FileDialog(const Win32FileDialog&) = delete;
+	virtual ~Win32FileDialog() override = default;
+
+public:
+	Win32MessageDialog& operator=(const Win32MessageDialog&) = delete;
+
+protected:
+	OPENFILENAMEA GetOpenFileName() const {
+		OPENFILENAMEA openFileName{};
+
+		openFileName.lStructSize = sizeof(openFileName);
+		openFileName.lpstrTitle = GetDialogTitle().data();
+		openFileName.hwndOwner = dynamic_cast<const Win32Window&>(GetOwner()).Handle;
+		openFileName.Flags = OFN_EXPLORER;
+
+		thread_local char path[MAX_PATH + 1]{};
+
+		openFileName.lpstrFile = path;
+		openFileName.nMaxFile = ARRAYSIZE(path);
+
+		thread_local std::string filter;
+		filter = GetWin32Filter();
+
+		openFileName.lpstrFilter = filter.data();
+
+		return openFileName;
+	}
+
+private:
+	std::string GetWin32Filter() const {
+		std::string result;
+
+		for (const auto& [description, pattern] : GetAllFilters()) {
+			result += description + '\0' + pattern + '\0';
+		}
+
+		return result;
+	}
+};
+
+class Win32OpenFileDialog final : public OpenFileDialog, public Win32FileDialog {
+public:
+	Win32OpenFileDialog(const Window& owner, std::string dialogTitle) noexcept
+		: Dialog(owner, std::move(dialogTitle)) {}
+	Win32OpenFileDialog(const Win32OpenFileDialog&) = delete;
+	virtual ~Win32OpenFileDialog() override = default;
+
+public:
+	Win32OpenFileDialog& operator=(const Win32OpenFileDialog&) = delete;
+
+protected:
+	virtual DialogResult PALShow() override {
+		OPENFILENAMEA openFileName = GetOpenFileName();
+
+		openFileName.Flags |= GetFileMustExist() ? OFN_FILEMUSTEXIST : 0;
+
+		if (GetOpenFileNameA(&openFileName) != 0) {
+			SetPath(openFileName.lpstrFile);
+
+			return DialogResult::Ok;
+		} else return DialogResult::Cancel;
+	}
+};
+
+std::unique_ptr<OpenFileDialog> OpenFileDialogRef::PALCreateOpenFileDialog(const Window& owner, std::string dialogTitle) {
+	return std::make_unique<Win32OpenFileDialog>(owner, std::move(dialogTitle));
+}
+
+class Win32SaveFileDialog final : public SaveFileDialog, public Win32FileDialog {
+public:
+	Win32SaveFileDialog(const Window& owner, std::string dialogTitle) noexcept
+		: Dialog(owner, std::move(dialogTitle)) {}
+	Win32SaveFileDialog(const Win32SaveFileDialog&) = delete;
+	virtual ~Win32SaveFileDialog() override = default;
+
+public:
+	Win32SaveFileDialog& operator=(const Win32SaveFileDialog&) = delete;
+
+protected:
+	virtual DialogResult PALShow() override {
+		OPENFILENAMEA openFileName = GetOpenFileName();
+
+		openFileName.Flags |= GetOverWritePrompt() ? OFN_OVERWRITEPROMPT : 0;
+
+		if (GetSaveFileNameA(&openFileName) != 0) {
+			SetPath(openFileName.lpstrFile);
+
+			return DialogResult::Ok;
+		} else return DialogResult::Cancel;
+	}
+};
+
+std::unique_ptr<SaveFileDialog> SaveFileDialogRef::PALCreateSaveFileDialog(const Window& owner, std::string dialogTitle) {
+	return std::make_unique<Win32SaveFileDialog>(owner, std::move(dialogTitle));
+}
 #endif

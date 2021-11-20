@@ -93,7 +93,7 @@ void BinaryAdaptor::Write(const void* array, std::size_t byteCount) {
 
 	m_OStream->write(static_cast<const char*>(array), static_cast<std::streamsize>(byteCount));
 
-	if (!m_IStream->good())
+	if (!m_OStream->good())
 		throw std::runtime_error("Failed to write to a file");
 }
 void BinaryAdaptor::Write(const std::string& string) {
