@@ -111,7 +111,7 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 		ctx->FillRectangle(SAM_MAGNIFY(x), SAM_MAGNIFY(y), SAM_MAGNIFY(width), SAM_MAGNIFY(height));
 
 		ctx->SetBrush(m_BelizeHoleBrush);
-		for (int i = 0; i < unitCount; ++i) {
+		for (int j = 0; j < unitCount; ++j) {
 			ctx->FillEllipse(SAM_MAGNIFY(x + SAM_UNITX(i)), SAM_MAGNIFY(y + SAM_UNITY(i)),
 				SAM_MAGNIFY(SAM_UNITSIZE), SAM_MAGNIFY(SAM_UNITSIZE));
 		}
