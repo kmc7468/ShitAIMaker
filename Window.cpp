@@ -9,7 +9,9 @@
 #include <cassert>
 #include <chrono>
 #include <exception>
+#include <fstream>
 #include <iomanip>
+#include <istream>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -22,12 +24,77 @@
 #define SAM_DONEOPTIMIZING 2
 
 namespace {
-	void PrintInputOrOutput(std::ostream& stream, const char* title, std::size_t index, const Matrix& matrix) {
+	void PrintInputOrOutput(std::ostream& stream, const char* title,
+		std::size_t index, const Matrix& matrix) {
 		stream << title << " #" << index << ": [";
 		for (std::size_t i = 0; i < matrix.GetRowSize(); ++i) {
 			stream << " " << matrix(i, 0);
 		}
 		stream << " ]";
+	}
+	std::optional<TrainData> ReadTrainDataFromStream(Window& window, std::istream& stream,
+		std::size_t inputSize, std::size_t outputSize) {
+		std::vector<float> numbers;
+
+		while (true) {
+			float number;
+			stream >> number;
+
+			if (stream.eof()) break;
+			else if (stream.fail() || stream.bad()) {
+				MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+					"숫자만 입력했는지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+
+				return std::nullopt;
+			}
+
+			numbers.push_back(number);
+		}
+
+		const std::size_t sampleSize = inputSize + outputSize;
+		const std::size_t sampleCount = numbers.size() / sampleSize;
+
+		if (numbers.size() % sampleSize != 0) {
+			MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+				"입력 및 출력의 크기를 확인해 보세요.",
+				MessageDialog::Error, MessageDialog::Ok);
+
+			messageDialog->Show();
+
+			return std::nullopt;
+		} else if (sampleCount == 0) {
+			MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+				"데이터를 입력했는지 확인해 보세요.",
+				MessageDialog::Error, MessageDialog::Ok);
+
+			messageDialog->Show();
+
+			return std::nullopt;
+		}
+
+		TrainData trainData;
+
+		for (std::size_t i = 0; i < sampleCount; ++i) {
+			TrainSample& trainSample = trainData.emplace_back();
+			Matrix& input = trainSample.first;
+			Matrix& output = trainSample.second;
+
+			input = Matrix(inputSize, 1);
+			output = Matrix(outputSize, 1);
+
+			for (std::size_t j = 0; j < inputSize; ++j) {
+				input(j, 0) = numbers[sampleSize * i + j];
+			}
+
+			for (std::size_t j = 0; j < outputSize; ++j) {
+				output(j, 0) = numbers[sampleSize * i + inputSize + j];
+			}
+		}
+
+		return trainData;
 	}
 }
 
@@ -164,79 +231,14 @@ public:
 	void OnOkButtonClick() {
 		std::istringstream iss(m_TrainDataTextBox->GetText() + ' ');
 
-		TrainData trainData;
+		const auto trainData = ReadTrainDataFromStream(m_WindowDialog->GetWindow(), iss,
+			m_InputSize, m_OutputSize);
 
-		while (true) {
-			TrainSample trainSample;
-			Matrix& input = trainSample.first;
-			Matrix& output = trainSample.second;
+		if (trainData) {
+			m_TrainData.emplace(std::move(*trainData));
 
-			input = Matrix(m_InputSize, 1);
-			output = Matrix(m_OutputSize, 1);
-
-			for (std::size_t i = 0; i < m_InputSize; ++i) {
-				iss >> input(i, 0);
-
-				if (iss.eof()) {
-					if (i > 0) {
-						MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-							"입력 및 출력의 크기를 확인해 보세요.",
-							MessageDialog::Error, MessageDialog::Ok);
-
-						messageDialog->Show();
-
-						return;
-					} goto close;
-				} else if (iss.fail() || iss.bad()) {
-					MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-						"숫자만 입력했는지 확인해 보세요.",
-						MessageDialog::Error, MessageDialog::Ok);
-
-					messageDialog->Show();
-
-					return;
-				}
-			}
-
-			for (std::size_t i = 0; i < m_OutputSize; ++i) {
-				iss >> output(i, 0);
-
-				if (iss.eof()) {
-					MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-						"입력 및 출력의 크기를 확인해 보세요.",
-						MessageDialog::Error, MessageDialog::Ok);
-
-					messageDialog->Show();
-
-					return;
-				} else if (iss.fail() || iss.bad()) {
-					MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-						"숫자만 입력했는지 확인해 보세요.",
-						MessageDialog::Error, MessageDialog::Ok);
-
-					messageDialog->Show();
-
-					return;
-				}
-			}
-
-			trainData.push_back(std::move(trainSample));
+			m_WindowDialog->Close(DialogResult::Ok);
 		}
-
-	close:
-		if (trainData.empty()) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"데이터를 입력했는지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-
-			return;
-		}
-
-		m_TrainData.emplace(std::move(trainData));
-
-		m_WindowDialog->Close(DialogResult::Ok);
 	}
 	void OnCancelButtonClick() {
 		m_WindowDialog->Close(DialogResult::Cancel);
@@ -650,6 +652,7 @@ public:
 		m_LossFunctionNameComboBox->SetEnabled(false);
 
 		m_LossFunctionNameComboBox->AddItem("MSE");
+		m_LossFunctionNameComboBox->AddItem("Cross entropy");
 
 		class OkButtonHandler final : public ButtonEventHandler {
 		private:
@@ -773,10 +776,15 @@ public:
 
 				OnLossFunctionNameComboBoxItemChanged(0);
 
-				m_ApplyButton->SetEnabled(false);
+			} else if (lossFunctionName == "CE") {
+				m_LossFunctionNameComboBox->SetSelectedItemIndex(1);
+
+				OnLossFunctionNameComboBoxItemChanged(1);
 			}
 
 			m_LossFunctionNameComboBox->SetEnabled(true);
+
+			m_ApplyButton->SetEnabled(false);
 		}
 	}
 
@@ -825,6 +833,8 @@ public:
 
 		if (index == 0) {
 			newLossFunction = MSE;
+		} else if (index == 1) {
+			newLossFunction = CE;
 		}
 
 		m_SGDOptimizer->SetLossFunction(newLossFunction);
@@ -1216,7 +1226,17 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 	network->AddSubItem(MenuItemRef("테스트", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			const auto trainData = AskTrainData("테스트 데이터 입력 - 실행");
+			if (!m_Project->GetNetwork().HasOptimizer()) {
+				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "옵티마이저가 없습니다",
+					"옵티마이저를 설정했는지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+
+				return;
+			}
+
+			const auto trainData = AskTrainData("테스트 데이터 입력 - 실행", "TestData.txt");
 
 			if (!trainData) return;
 
@@ -1232,22 +1252,35 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 				resultOss << std::fixed;
 
-				for (std::size_t i = 0; i < trainData->size(); ++i) {
-					if (i > 0) {
-						resultOss << "\n\n";
+				if (m_IsFileMode) {
+					float lossSum = 0;
+
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
+
+						lossSum += loss;
 					}
 
-					const Matrix output = network.Forward((*trainData)[i].first);
-					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+					resultOss << lossFunction->GetName() << ' ' << lossSum / trainData->size();
+				} else {
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						if (i > 0) {
+							resultOss << "\n\n";
+						}
 
-					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
-					resultOss << '\n';
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
 
-					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
-					resultOss << '\n';
+						PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+						resultOss << '\n';
 
-					PrintInputOrOutput(resultOss, "출력", i, output);
-					resultOss << " (MSE " << mse << ')';
+						PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+						resultOss << '\n';
+
+						PrintInputOrOutput(resultOss, "출력", i, output);
+						resultOss << " (" << lossFunction->GetName() << ' ' << loss << ')';
+					}
 				}
 
 				m_Window->SendMessage(SAM_DONETEST, resultOss.str());
@@ -1267,7 +1300,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 				return;
 			}
 
-			const auto trainData = AskTrainData("학습 데이터 입력 - 빠른 학습");
+			const auto trainData = AskTrainData("학습 데이터 입력 - 빠른 학습", "TrainData.txt");
 
 			if (!trainData) return;
 
@@ -1284,12 +1317,15 @@ MenuRef MainWindowHandler::CreateMenu() {
 				const std::size_t outputSize = network.GetOutputSize();
 
 				std::vector<std::pair<Matrix, float>> befores;
+				float beforeLossSum = 0;
 
 				for (const auto& [input, answer] : *trainData) {
 					Matrix output = network.Forward(input);
-					const float mse = lossFunction->Forward(output, answer);
+					const float loss = lossFunction->Forward(output, answer);
 
-					befores.push_back(std::make_pair(std::move(output), mse));
+					befores.push_back(std::make_pair(std::move(output), loss));
+
+					beforeLossSum += loss;
 				}
 
 				network.Optimize(*trainData, static_cast<std::size_t>(*epoch));
@@ -1298,25 +1334,39 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 				resultOss << std::fixed;
 
-				for (std::size_t i = 0; i < trainData->size(); ++i) {
-					if (i > 0) {
-						resultOss << "\n\n";
+				if (m_IsFileMode) {
+					float lossSum = 0;
+
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
+
+						lossSum += loss;
 					}
 
-					const Matrix output = network.Forward((*trainData)[i].first);
-					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+					resultOss << "학습 전 " << lossFunction->GetName() << ' ' << beforeLossSum / trainData->size() << '\n';
+					resultOss << "학습 후 " << lossFunction->GetName() << ' ' << lossSum / trainData->size();
+				} else {
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						if (i > 0) {
+							resultOss << "\n\n";
+						}
 
-					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
-					resultOss << '\n';
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
 
-					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
-					resultOss << '\n';
+						PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+						resultOss << '\n';
 
-					PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
-					resultOss << " (MSE " << befores[i].second << ")\n";
+						PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+						resultOss << '\n';
 
-					PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
-					resultOss << " (MSE " << mse << ')';
+						PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
+						resultOss << " (" << lossFunction->GetName() << ' ' << befores[i].second << ")\n";
+
+						PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
+						resultOss << " (" << lossFunction->GetName() << ' ' << loss << ')';
+					}
 				}
 
 				m_Window->SendMessage(SAM_DONEFASTOPTIMIZING, resultOss.str());
@@ -1334,7 +1384,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 				return;
 			}
 
-			const auto trainData = AskTrainData("학습 데이터 입력 - 학습 및 시각화");
+			const auto trainData = AskTrainData("학습 데이터 입력 - 학습 및 시각화", "TrainData.txt");
 
 			if (!trainData) return;
 
@@ -1351,12 +1401,15 @@ MenuRef MainWindowHandler::CreateMenu() {
 				const std::size_t outputSize = network.GetOutputSize();
 
 				std::vector<std::pair<Matrix, float>> befores;
+				float beforeLossSum = 0;
 
 				for (const auto& [input, answer] : *trainData) {
 					Matrix output = network.Forward(input);
-					const float mse = lossFunction->Forward(output, answer);
+					const float loss = lossFunction->Forward(output, answer);
 
-					befores.push_back(std::make_pair(std::move(output), mse));
+					befores.push_back(std::make_pair(std::move(output), loss));
+
+					beforeLossSum += loss;
 				}
 
 				const std::size_t defaultEpoch = *epoch / 10;
@@ -1380,25 +1433,39 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 				resultOss << std::fixed;
 
-				for (std::size_t i = 0; i < trainData->size(); ++i) {
-					if (i > 0) {
-						resultOss << "\n\n";
+				if (m_IsFileMode) {
+					float lossSum = 0;
+
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
+
+						lossSum += loss;
 					}
 
-					const Matrix output = network.Forward((*trainData)[i].first);
-					const float mse = lossFunction->Forward(output, (*trainData)[i].second);
+					resultOss << "학습 전 " << lossFunction->GetName() << ' ' << beforeLossSum / trainData->size() << '\n';
+					resultOss << "학습 후 " << lossFunction->GetName() << ' ' << lossSum / trainData->size();
+				} else {
+					for (std::size_t i = 0; i < trainData->size(); ++i) {
+						if (i > 0) {
+							resultOss << "\n\n";
+						}
 
-					PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
-					resultOss << '\n';
+						const Matrix output = network.Forward((*trainData)[i].first);
+						const float loss = lossFunction->Forward(output, (*trainData)[i].second);
 
-					PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
-					resultOss << '\n';
+						PrintInputOrOutput(resultOss, "입력", i, (*trainData)[i].first);
+						resultOss << '\n';
 
-					PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
-					resultOss << " (MSE " << befores[i].second << ")\n";
+						PrintInputOrOutput(resultOss, "정답", i, (*trainData)[i].second);
+						resultOss << '\n';
 
-					PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
-					resultOss << " (MSE " << mse << ')';
+						PrintInputOrOutput(resultOss, "학습 전 출력", i, befores[i].first);
+						resultOss << " (" << lossFunction->GetName() << ' ' << befores[i].second << ")\n";
+
+						PrintInputOrOutput(resultOss, "학습 후 출력", i, output);
+						resultOss << " (" << lossFunction->GetName() << ' ' << loss << ')';
+					}
 				}
 
 				m_Window->SendMessage(SAM_DONEOPTIMIZING, resultOss.str());
@@ -1504,6 +1571,16 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			m_NetworkViewer->Invalidate();
 		})));
+	network->AddSubItem(MenuItemRef("Softmax 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			m_Project->GetNetwork().AddLayer(std::make_unique<SMLayer>());
+
+			m_IsSaved = false;
+
+			UpdateText();
+
+			m_NetworkViewer->Invalidate();
+		})));
 
 	menu->AddItem(std::move(network));
 
@@ -1591,7 +1668,7 @@ bool MainWindowHandler::SaveProject(bool saveAs) {
 	}
 }
 
-std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle) {
+std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle, const std::filesystem::path& path) {
 	if (m_Project->GetNetwork().GetLayerCount() == 0) {
 	emptyError:
 		MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "올바르지 않은 네트워크 구성입니다",
@@ -1607,6 +1684,34 @@ std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle
 	const std::size_t outputSize = m_Project->GetNetwork().GetOutputSize();
 
 	if (inputSize == 0 || outputSize == 0) goto emptyError;
+
+	if (!path.empty() && std::filesystem::exists(path)) {
+		MessageDialogRef fileFoundMessageDialog(*m_Window, SAM_APPNAME, "데이터 파일을 발견했습니다",
+			"데이터를 " + path.string() + " 파일에서 불러올까요? 데이터를 파일에서 불러올 경우 학습 결과는 평균 손실 함숫값만 출력됩니다.",
+			MessageDialog::Information, MessageDialog::Yes | MessageDialog::No | MessageDialog::Cancel);
+
+		const DialogResult result = fileFoundMessageDialog->Show();
+
+		if (result == DialogResult::Yes) {
+			std::ifstream iss(path);
+
+			m_IsFileMode = true;
+
+			if (!iss) {
+				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "데이터 파일을 열지 못했습니다",
+					"올바른 데이터 파일인지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+
+				return std::nullopt;
+			}
+
+			return ReadTrainDataFromStream(*m_Window, iss, inputSize, outputSize);
+		} else if (result == DialogResult::Cancel) return std::nullopt;
+	}
+
+	m_IsFileMode = false;
 
 	WindowDialogRef trainDataInputDialog(*m_Window, std::move(dialogTitle),
 		std::make_unique<TrainDataInputDialogHandler>(inputSize, outputSize));

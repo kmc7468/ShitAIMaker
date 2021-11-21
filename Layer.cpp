@@ -340,3 +340,70 @@ float LeakyReLU(float x) {
 float LeakyReLUDerivative(float x) {
 	return x >= 0.f ? 1.f : 0.01f;
 }
+
+SMLayer::SMLayer()
+	: Layer("SMLayer") {}
+
+std::size_t SMLayer::GetForwardInputSize() const noexcept {
+	return 0;
+}
+std::size_t SMLayer::GetForwardOutputSize() const noexcept {
+	return 0;
+}
+
+void SMLayer::ResetAllParameters() {}
+
+Matrix SMLayer::ForwardImpl(const Matrix& input) {
+	const auto [row, column] = input.GetSize();
+	Matrix result = input;
+
+	for (std::size_t i = 0; i < column; ++i) {
+		float sum = 0;
+
+		for (std::size_t j = 0; j < row; ++j) {
+			result(j, i) = std::expf(result(j, i));
+
+			sum += result(j, i);
+		}
+
+		for (std::size_t j = 0; j < row; ++j) {
+			result(j, i) /= sum;
+		}
+	}
+
+	return result;
+}
+Matrix SMLayer::BackwardImpl(const Matrix& input) {
+	const Matrix& lastOutput = GetLastForwardOutput();
+	const auto [row, column] = lastOutput.GetSize();
+
+	Matrix result(row, column);
+
+	for (std::size_t i = 0; i < column; ++i) {
+		Matrix gradient(row, row);
+
+		for (std::size_t j = 0; j < row; ++j) {
+			for (std::size_t k = 0; k < row; ++k) {
+				if (j == k) {
+					gradient(j, k) = lastOutput(j, i) * (1 - lastOutput(j, i));
+				} else {
+					gradient(j, k) = -lastOutput(j, i) * lastOutput(k, i);
+				}
+			}
+		}
+
+		Matrix oneInput(row, 1);
+
+		for (std::size_t j = 0; j < row; ++j) {
+			oneInput(j, 0) = input(j, i);
+		}
+
+		const Matrix oneResult = gradient * oneInput;
+
+		for (std::size_t j = 0; j < row; ++j) {
+			result(j, i) = oneResult(j, 0);
+		}
+	}
+
+	return result;
+}

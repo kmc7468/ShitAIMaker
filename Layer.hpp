@@ -255,3 +255,23 @@ float ReLU(float x);
 float ReLUDerivative(float x);
 float LeakyReLU(float x);
 float LeakyReLUDerivative(float x);
+
+class SMLayer final : public Layer {
+public:
+	SMLayer();
+	SMLayer(const SMLayer&) = delete;
+	virtual ~SMLayer() override = default;
+
+public:
+	SMLayer& operator=(const SMLayer&) = delete;
+
+public:
+	virtual std::size_t GetForwardInputSize() const noexcept override;
+	virtual std::size_t GetForwardOutputSize() const noexcept override;
+
+	virtual void ResetAllParameters() override;
+
+protected:
+	virtual Matrix ForwardImpl(const Matrix& input) override;
+	virtual Matrix BackwardImpl(const Matrix& input) override;
+};

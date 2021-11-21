@@ -42,7 +42,45 @@ public:
 	}
 };
 
+class CEImpl final : public LossFunction {
+public:
+	CEImpl()
+		: LossFunction("CE") {}
+	CEImpl(const CEImpl&) = delete;
+	virtual ~CEImpl() override = default;
+
+public:
+	CEImpl& operator=(const CEImpl&) = delete;
+
+public:
+	virtual float Forward(const Matrix& input, const Matrix& target) const override {
+		const auto [row, column] = input.GetSize();
+		float result = 0;
+
+		for (std::size_t i = 0; i < column; ++i) {
+			for (std::size_t j = 0; j < row; ++j) {
+				result += target(j, i) * std::logf(input(j, i));
+			}
+		}
+
+		return result / column;
+	}
+	virtual Matrix Backward(const Matrix& input, const Matrix& target) const override {
+		const auto [row, column] = input.GetSize();
+		Matrix result(row, column);
+
+		for (std::size_t i = 0; i < column; ++i) {
+			for (std::size_t j = 0; j < row; ++j) {
+				result(j, i) = target(j, i) / input(j, i);
+			}
+		}
+
+		return (-1.f / column) * result;
+	}
+};
+
 const std::shared_ptr<const LossFunction> MSE = std::make_shared<MSEImpl>();
+const std::shared_ptr<const LossFunction> CE = std::make_shared<CEImpl>();
 
 Optimizer::Optimizer(std::string name) noexcept
 	: m_Name(std::move(name)) {}

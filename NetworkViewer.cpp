@@ -92,6 +92,10 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 				layerLines.push_back(std::vector(unitCount, 0.f));
 				layerLines.back()[j] = 1;
 			}
+		} else if (layerName == "SMLayer") {
+			for (std::size_t j = 0; j < prevUnitCount; ++j) {
+				layerLines.push_back(std::vector(unitCount, 1.f));
+			}
 		}
 
 		layers.push_back({ x + SAM_LAYERINTERVAL, 0, width, height, unitCount });
@@ -133,6 +137,8 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 				case AFunction::ReLU: layerName = "ReLU È°¼ºÈ­Ãþ"; break;
 				case AFunction::LeakyReLU: layerName = "LeakyReLU È°¼ºÈ­Ãþ"; break;
 				}
+			} else if (layerRealName == "SMLayer") {
+				layerName = "Softmax È°¼ºÈ­Ãþ";
 			}
 		}
 

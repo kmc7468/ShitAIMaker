@@ -28,6 +28,7 @@ public:
 };
 
 extern const std::shared_ptr<const LossFunction> MSE;
+extern const std::shared_ptr<const LossFunction> CE;
 
 class Optimizer {
 private:

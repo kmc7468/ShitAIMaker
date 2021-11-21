@@ -6,6 +6,7 @@
 
 #include <any>
 #include <cstddef>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -22,6 +23,7 @@ private:
 	Panel* m_NetworkViewer = nullptr;
 
 	std::optional<std::jthread> m_Thread;
+	bool m_IsFileMode = false;
 
 public:
 	MainWindowHandler() noexcept = default;
@@ -45,7 +47,7 @@ private:
 	void CreateNewProject();
 	bool SaveProject(bool saveAs = false);
 
-	std::optional<TrainData> AskTrainData(std::string dialogTitle);
+	std::optional<TrainData> AskTrainData(std::string dialogTitle, const std::filesystem::path& path = "");
 	std::optional<float> AskLearningRate(std::string dialogTitle);
 	std::optional<std::size_t> AskEpoch(std::string dialogTitle);
 	std::optional<std::size_t> AskInputOrOutputSize(std::string dialogTitle);

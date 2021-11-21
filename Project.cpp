@@ -253,6 +253,8 @@ namespace {
 				const AFunction aFunction = static_cast<AFunction>(bin.ReadInt32());
 
 				layer = std::make_unique<ALayer>(aFunction);
+			} else if (layerName == "SMLayer") {
+				layer = std::make_unique<SMLayer>();
 			} else throw std::runtime_error("Invalid layer name");
 
 			ReadVariableTable(bin, layer->GetVariableTable());
@@ -280,6 +282,8 @@ namespace {
 
 		if (lossFunctionName == "MSE") {
 			optimizer->SetLossFunction(MSE);
+		} else if (lossFunctionName == "CE") {
+			optimizer->SetLossFunction(CE);
 		} else throw std::runtime_error("Invalid loss function name");
 
 		network.SetOptimizer(std::move(optimizer));
