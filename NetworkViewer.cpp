@@ -100,7 +100,11 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 		maxHeight = std::max(maxHeight, height);
 	}
 
-	for (auto& [x, y, width, height, unitCount] : layers) {
+	ctx->SetFont(FontRef("¸¼Àº °íµñ", 11 * SAM_ZOOM));
+
+	for (std::size_t i = 0; i < layers.size(); ++i) {
+		auto& [x, y, width, height, unitCount] = layers[i];
+
 		y = SAM_ROUND(m_MovedY + (maxHeight - height) / 2.f);
 
 		ctx->SetBrush(m_CloudBrush);
@@ -111,6 +115,28 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 			ctx->FillEllipse(SAM_MAGNIFY(x + SAM_UNITX(i)), SAM_MAGNIFY(y + SAM_UNITY(i)),
 				SAM_MAGNIFY(SAM_UNITSIZE), SAM_MAGNIFY(SAM_UNITSIZE));
 		}
+
+		std::string layerName;
+
+		if (i == 0) {
+			layerName = "ÀÔ·ÂÃþ";
+		} else {
+			const Layer& layer = m_TargetNetwork->GetLayer(i - 1);
+			const std::string_view layerRealName = layer.GetName();
+
+			if (layerRealName == "FCLayer") {
+				layerName = "Àü°áÇÕÃþ";
+			} else if (layerRealName == "ALayer") {
+				switch (static_cast<const ALayer&>(layer).GetAFunction()) {
+				case AFunction::Sigmoid: layerName = "Sigmoid È°¼ºÈ­Ãþ"; break;
+				case AFunction::Tanh: layerName = "Tanh È°¼ºÈ­Ãþ"; break;
+				case AFunction::ReLU: layerName = "ReLU È°¼ºÈ­Ãþ"; break;
+				case AFunction::LeakyReLU: layerName = "LeakyReLU È°¼ºÈ­Ãþ"; break;
+				}
+			}
+		}
+
+		ctx->DrawString(layerName, SAM_MAGNIFY(x), SAM_MAGNIFY(y + height + SAM_UNITMARGIN));
 	}
 
 	for (std::size_t i = 0; i < lines.size(); ++i) {

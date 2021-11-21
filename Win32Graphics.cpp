@@ -30,6 +30,7 @@ namespace {
 
 	PenRef g_DefaultPen(nullptr);
 	BrushRef g_DefaultBrush(nullptr);
+	FontRef g_DefaultFont(nullptr);
 
 	void InitializeGdiplus() {
 		Gdiplus::GdiplusStartupInput gdiplusStartupInput;
@@ -39,10 +40,12 @@ namespace {
 
 		g_DefaultPen = SolidPenRef(Color::Black, 1);
 		g_DefaultBrush = SolidBrushRef(Color::Black);
+		g_DefaultFont = FontRef("TAHOMA", 8);
 	}
 	void FinalizeGdiplus() {
 		g_DefaultPen = std::shared_ptr<Pen>();
 		g_DefaultBrush = std::shared_ptr<Brush>();
+		g_DefaultFont = std::shared_ptr<Font>();
 
 		Gdiplus::GdiplusShutdown(g_GdiplusToken);
 	}
@@ -66,7 +69,8 @@ public:
 public:
 	Win32Font(std::string fontFamily, float size, Font::Unit sizeUnit)
 		: Font(std::move(fontFamily), size, sizeUnit),
-		GdiplusFont(GetTString(fontFamily).data(), size, Gdiplus::FontStyleRegular, GetGdiplusUnit(sizeUnit)) {
+		GdiplusFont(GetTString(std::string(GetFontFamily())).data(), size,
+			Gdiplus::FontStyleRegular, GetGdiplusUnit(sizeUnit)) {
 
 		GdiFont = CreateFontA(GetGdiSize(size, sizeUnit), 0, 0, 0, FW_REGULAR, FALSE, FALSE, FALSE,
 			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE,
@@ -967,6 +971,7 @@ public:
 protected:
 	virtual void PALSetPen(Pen&) override {}
 	virtual void PALSetBrush(Brush&) override {}
+	virtual void PALSetFont(Font&) override {}
 
 	virtual void PALDrawRectangle(int x, int y, int width, int height) override {
 		m_Graphics.DrawRectangle(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x, y, width, height);
@@ -976,6 +981,12 @@ protected:
 	}
 	virtual void PALDrawLine(int x1, int y1, int x2, int y2) override {
 		m_Graphics.DrawLine(&dynamic_cast<const Win32Pen&>(GetPen()).Object, x1, y1, x2, y2);
+	}
+	virtual void PALDrawString(const std::string& string, int x, int y) override {
+		m_Graphics.DrawString(GetTString(string).data(), -1,
+			&dynamic_cast<const Win32Font&>(GetFont()).GdiplusFont,
+			{ static_cast<float>(x), static_cast<float>(y) },
+			&dynamic_cast<const Win32Brush&>(GetBrush()).Object);
 	}
 
 	virtual void PALFillRectangle(int x, int y, int width, int height) override {
@@ -1091,8 +1102,9 @@ void Win32Panel::WmPaint() {
 }
 
 Win32RenderingContext2D::Win32RenderingContext2D(Graphics& graphics, HDC deviceContext)
-	: RenderingContext2D(graphics, g_DefaultPen, g_DefaultBrush), m_Graphics(deviceContext) {
+	: RenderingContext2D(graphics, g_DefaultPen, g_DefaultBrush, g_DefaultFont), m_Graphics(deviceContext) {
 	m_Graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+	m_Graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAlias);
 }
 
 class Win32MessageDialog final : public MessageDialog {

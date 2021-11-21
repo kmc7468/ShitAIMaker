@@ -503,8 +503,10 @@ Graphics& RenderingContext::GetGraphics() noexcept {
 	return *m_Graphics;
 }
 
-RenderingContext2D::RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush)
-	: RenderingContext(graphics), m_Pen(std::move(defaultPen)), m_Brush(std::move(defaultBrush)) {}
+RenderingContext2D::RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush,
+	FontRef defaultFont)
+	: RenderingContext(graphics), m_Pen(std::move(defaultPen)), m_Brush(std::move(defaultBrush)),
+	m_Font(std::move(defaultFont)) {}
 
 const Pen& RenderingContext2D::GetPen() const noexcept {
 	return m_Pen.Get();
@@ -528,6 +530,17 @@ BrushRef RenderingContext2D::SetBrush(BrushRef newBrush) {
 
 	return newBrush;
 }
+const Font& RenderingContext2D::GetFont() const noexcept {
+	return *m_Font;
+}
+FontRef RenderingContext2D::SetFont(FontRef newFont) {
+	assert(!newFont.IsEmpty());
+
+	PALSetFont(newFont.Get());
+	std::swap(m_Font, newFont);
+
+	return newFont;
+}
 
 void RenderingContext2D::DrawRectangle(int x, int y, int width, int height) {
 	PALDrawRectangle(x, y, width, height);
@@ -546,6 +559,11 @@ void RenderingContext2D::DrawLine(int x1, int y1, int x2, int y2) {
 }
 void RenderingContext2D::DrawLine(const std::pair<int, int>& from, const std::pair<int, int>& to) {
 	DrawLine(from.first, from.second, to.first, to.second);
+}
+void RenderingContext2D::DrawString(const std::string& string, int x, int y) {
+	if (string.empty()) return;
+
+	PALDrawString(string, x, y);
 }
 
 void RenderingContext2D::FillRectangle(int x, int y, int width, int height) {

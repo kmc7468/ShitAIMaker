@@ -804,9 +804,10 @@ class RenderingContext2D : public RenderingContext {
 private:
 	PenRef m_Pen;
 	BrushRef m_Brush;
+	FontRef m_Font;
 
 public:
-	RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush);
+	RenderingContext2D(Graphics& graphics, PenRef defaultPen, BrushRef defaultBrush, FontRef defaultFont);
 	RenderingContext2D(const RenderingContext2D&) = delete;
 	virtual ~RenderingContext2D() override = default;
 
@@ -818,6 +819,8 @@ public:
 	PenRef SetPen(PenRef newPen);
 	const Brush& GetBrush() const noexcept;
 	BrushRef SetBrush(BrushRef newBrush);
+	const Font& GetFont() const noexcept;
+	FontRef SetFont(FontRef newFont);
 
 	void DrawRectangle(int x, int y, int width, int height);
 	void DrawRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
@@ -825,6 +828,7 @@ public:
 	void DrawEllipse(const std::pair<int, int>& location, const std::pair<int, int>& size);
 	void DrawLine(int x1, int y1, int x2, int y2);
 	void DrawLine(const std::pair<int, int>& from, const std::pair<int, int>& to);
+	void DrawString(const std::string& string, int x, int y);
 
 	void FillRectangle(int x, int y, int width, int height);
 	void FillRectangle(const std::pair<int, int>& location, const std::pair<int, int>& size);
@@ -834,10 +838,12 @@ public:
 protected:
 	virtual void PALSetPen(Pen& newPen) = 0;
 	virtual void PALSetBrush(Brush& newBrush) = 0;
+	virtual void PALSetFont(Font& newFont) = 0;
 
 	virtual void PALDrawRectangle(int x, int y, int width, int height) = 0;
 	virtual void PALDrawEllipse(int x, int y, int width, int height) = 0;
 	virtual void PALDrawLine(int x, int y, int width, int height) = 0;
+	virtual void PALDrawString(const std::string& string, int x, int y) = 0;
 
 	virtual void PALFillRectangle(int x, int y, int width, int height) = 0;
 	virtual void PALFillEllipse(int x, int y, int width, int height) = 0;
