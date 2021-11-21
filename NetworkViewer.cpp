@@ -73,7 +73,7 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 				const ReadonlyParameter weights = fcLayer.GetParameterTable().GetParameter("Weights");
 				const Matrix& weightsMatrix = weights.GetValue();
 
-				for (std::size_t k = 0; k < unitCount; ++k) {
+				for (std::size_t k = 0; k < static_cast<std::size_t>(unitCount); ++k) {
 					const float weight = weightsMatrix(k, j);
 
 					unitLines.push_back(weight);
@@ -112,7 +112,7 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 
 		ctx->SetBrush(m_BelizeHoleBrush);
 		for (int j = 0; j < unitCount; ++j) {
-			ctx->FillEllipse(SAM_MAGNIFY(x + SAM_UNITX(i)), SAM_MAGNIFY(y + SAM_UNITY(i)),
+			ctx->FillEllipse(SAM_MAGNIFY(x + SAM_UNITX(j)), SAM_MAGNIFY(y + SAM_UNITY(j)),
 				SAM_MAGNIFY(SAM_UNITSIZE), SAM_MAGNIFY(SAM_UNITSIZE));
 		}
 
