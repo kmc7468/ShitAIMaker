@@ -1146,7 +1146,7 @@ protected:
 		openFileName.lStructSize = sizeof(openFileName);
 		openFileName.lpstrTitle = GetDialogTitle().data();
 		openFileName.hwndOwner = dynamic_cast<const Win32Window&>(GetOwner()).Handle;
-		openFileName.Flags = OFN_EXPLORER;
+		openFileName.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR;
 
 		thread_local char path[MAX_PATH + 1]{};
 
