@@ -12,6 +12,26 @@ void FinalizeGraphics() noexcept {
 	PALFinalizeGraphics();
 }
 
+Font::Font(std::string fontFamily, float size, Unit sizeUnit) noexcept
+	: m_FontFamily(std::move(fontFamily)), m_Size(size), m_SizeUnit(sizeUnit) {
+	assert(!m_FontFamily.empty());
+	assert(size > 0);
+}
+Font::~Font() {}
+
+std::string_view Font::GetFontFamily() const noexcept {
+	return m_FontFamily;
+}
+float Font::GetSize() const noexcept {
+	return m_Size;
+}
+Font::Unit Font::GetSizeUnit() const noexcept {
+	return m_SizeUnit;
+}
+
+FontRef::FontRef(std::string fontFamily, float size, Font::Unit sizeUnit)
+	: SharedRef(PALCreateFont(std::move(fontFamily), size, sizeUnit)) {}
+
 void EventHandler::OnCreate(Control&) {}
 void EventHandler::OnDestroy(Control&) {}
 
@@ -58,13 +78,28 @@ Control& Control::AddChild(ControlRef&& child) {
 	control.m_Parent = this;
 	PALAddChild(control);
 
+	if (m_Font != nullptr && control.m_Font == nullptr) {
+		control.SetFont(m_Font);
+	}
+
 	return control;
+}
+void* Control::GetHandle() noexcept {
+	return PALGetHandle();
 }
 EventHandler& Control::GetEventHandler() noexcept {
 	return *m_EventHandler;
 }
-void* Control::GetHandle() noexcept {
-	return PALGetHandle();
+
+FontRef Control::GetFont() const noexcept {
+	return m_Font;
+}
+void Control::SetFont(FontRef newFont) noexcept {
+	assert(!newFont.IsEmpty());
+
+	m_Font = std::move(newFont);
+
+	PALSetFont(*m_Font);
 }
 
 std::pair<int, int> Control::GetSize() const {
@@ -734,6 +769,13 @@ Control& WindowDialog::AddChild(ControlRef&& child) {
 }
 void* WindowDialog::GetHandle() noexcept {
 	return m_Window->GetHandle();
+}
+
+FontRef WindowDialog::GetFont() const noexcept {
+	return m_Window->GetFont();
+}
+void WindowDialog::SetFont(FontRef newFont) noexcept {
+	m_Window->SetFont(newFont);
 }
 
 std::pair<int, int> WindowDialog::GetSize() const {

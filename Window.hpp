@@ -14,6 +14,7 @@
 class MainWindowHandler final : public WindowEventHandler {
 private:
 	Window* m_Window = nullptr;
+	FontRef m_Font = std::shared_ptr<Font>();
 
 	std::unique_ptr<Project> m_Project;
 	bool m_IsSaved = true;

@@ -1065,6 +1065,8 @@ void MainWindowHandler::OnCreate(Control& control) {
 
 	m_Window->SetMenu(CreateMenu());
 
+	m_Font = FontRef("맑은 고딕", 11);
+
 	CreateNewProject();
 
 	m_NetworkViewer = &dynamic_cast<Panel&>(m_Window->AddChild(PanelRef(
@@ -1407,6 +1409,8 @@ MenuRef MainWindowHandler::CreateMenu() {
 			WindowDialogRef optimizerOptionDialog(*m_Window, "옵티마이저 설정",
 				std::make_unique<OptimizerOptionDialogHandler>(m_Project->GetNetwork()));
 
+			optimizerOptionDialog->SetFont(m_Font);
+
 			if (optimizerOptionDialog->Show() == DialogResult::Ok) {
 				m_IsSaved = false;
 
@@ -1415,7 +1419,18 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("파라미터 초기화", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			Network& network = m_Project->GetNetwork();
+			const std::size_t layerCount = network.GetLayerCount();
+
+			for (std::size_t i = 0; i < layerCount; ++i) {
+				network.GetLayer(i).ResetAllParameters();
+			}
+
+			m_IsSaved = false;
+
+			UpdateText();
+
+			m_NetworkViewer->Invalidate();
 		})));
 
 	network->AddSubItem(MenuItemSeparatorRef());
@@ -1596,6 +1611,8 @@ std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle
 	WindowDialogRef trainDataInputDialog(*m_Window, std::move(dialogTitle),
 		std::make_unique<TrainDataInputDialogHandler>(inputSize, outputSize));
 
+	trainDataInputDialog->SetFont(m_Font);
+
 	if (trainDataInputDialog->Show() == DialogResult::Ok)
 		return dynamic_cast<TrainDataInputDialogHandler&>(trainDataInputDialog->GetEventHandler()).GetTrainData();
 	else return std::nullopt;
@@ -1603,6 +1620,8 @@ std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle
 std::optional<float> MainWindowHandler::AskLearningRate(std::string dialogTitle) {
 	WindowDialogRef learningRateInputDialog(*m_Window, std::move(dialogTitle),
 		std::make_unique<LearningRateInputDialogHandler>());
+
+	learningRateInputDialog->SetFont(m_Font);
 
 	if (learningRateInputDialog->Show() == DialogResult::Ok)
 		return dynamic_cast<LearningRateInputDialogHandler&>(
@@ -1612,6 +1631,8 @@ std::optional<float> MainWindowHandler::AskLearningRate(std::string dialogTitle)
 std::optional<std::size_t> MainWindowHandler::AskEpoch(std::string dialogTitle) {
 	WindowDialogRef epochInputDialog(*m_Window, std::move(dialogTitle), std::make_unique<EpochInputDialogHandler>());
 
+	epochInputDialog->SetFont(m_Font);
+
 	if (epochInputDialog->Show() == DialogResult::Ok)
 		return dynamic_cast<EpochInputDialogHandler&>(epochInputDialog->GetEventHandler()).GetEpoch();
 	else return std::nullopt;
@@ -1619,6 +1640,8 @@ std::optional<std::size_t> MainWindowHandler::AskEpoch(std::string dialogTitle) 
 std::optional<std::size_t> MainWindowHandler::AskInputOrOutputSize(std::string dialogTitle) {
 	WindowDialogRef inputOrOutputSizeInputDialog(*m_Window, std::move(dialogTitle),
 		std::make_unique<InputOrOutputSizeInputDialogHandler>());
+
+	inputOrOutputSizeInputDialog->SetFont(m_Font);
 
 	if (inputOrOutputSizeInputDialog->Show() == DialogResult::Ok)
 		return dynamic_cast<InputOrOutputSizeInputDialogHandler&>(

@@ -182,6 +182,8 @@ public:
 	const ParameterTable& GetParameterTable() const noexcept;
 	ParameterTable& GetParameterTable() noexcept;
 
+	virtual void ResetAllParameters() = 0;
+
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) = 0;
 	virtual Matrix BackwardImpl(const Matrix& input) = 0;
@@ -202,6 +204,8 @@ public:
 public:
 	virtual std::size_t GetForwardInputSize() const noexcept override;
 	virtual std::size_t GetForwardOutputSize() const noexcept override;
+
+	virtual void ResetAllParameters() override;
 
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) override;
@@ -232,6 +236,8 @@ public:
 public:
 	virtual std::size_t GetForwardInputSize() const noexcept override;
 	virtual std::size_t GetForwardOutputSize() const noexcept override;
+
+	virtual void ResetAllParameters() override;
 
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) override;

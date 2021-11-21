@@ -118,6 +118,42 @@ void FinalizeGraphics() noexcept;
 void PALInitializeGraphics();
 void PALFinalizeGraphics() noexcept;
 
+class Font {
+public:
+	enum Unit {
+		Points,
+		Pixels,
+	};
+
+private:
+	std::string m_FontFamily;
+	float m_Size;
+	Unit m_SizeUnit;
+
+public:
+	Font(std::string fontFamily, float size, Unit sizeUnit = Points) noexcept;
+	Font(const Font&) = delete;
+	virtual ~Font() = 0;
+
+public:
+	Font& operator=(const Font&) = delete;
+
+public:
+	std::string_view GetFontFamily() const noexcept;
+	float GetSize() const noexcept;
+	Unit GetSizeUnit() const noexcept;
+};
+
+class FontRef final : public SharedRef<Font> {
+public:
+	using SharedRef::SharedRef;
+
+	FontRef(std::string fontFamily, float size, Font::Unit sizeUnit = Font::Points);
+
+private:
+	static std::shared_ptr<Font> PALCreateFont(std::string fontFamily, float size, Font::Unit sizeUnit);
+};
+
 class Control;
 class ControlRef;
 
@@ -168,6 +204,8 @@ private:
 	std::vector<ControlRef> m_Children;
 	std::unique_ptr<EventHandler> m_EventHandler;
 
+	FontRef m_Font = std::shared_ptr<Font>();
+
 public:
 	explicit Control(std::unique_ptr<EventHandler>&& eventHandler) noexcept;
 	Control(const Control&) = delete;
@@ -187,6 +225,10 @@ public:
 	void* GetHandle() noexcept;
 	EventHandler& GetEventHandler() noexcept;
 
+	FontRef GetFont() const noexcept;
+	void SetFont(FontRef newFont) noexcept;
+
+public:
 	std::pair<int, int> GetSize() const;
 	void SetSize(int newWidth, int newHeight);
 	void SetSize(const std::pair<int, int>& newSize);
@@ -218,6 +260,8 @@ public:
 protected:
 	virtual void PALAddChild(Control& child) = 0;
 	virtual void* PALGetHandle() noexcept = 0;
+
+	virtual void PALSetFont(Font& font) = 0;
 
 	virtual std::pair<int, int> PALGetSize() const = 0;
 	virtual void PALSetSize(int newWidth, int newHeight) = 0;
@@ -1064,6 +1108,9 @@ public:
 	Control& AddChild(ControlRef&& child);
 	void* GetHandle() noexcept;
 	WindowDialogEventHandler& GetEventHandler() noexcept;
+
+	FontRef GetFont() const noexcept;
+	void SetFont(FontRef newFont) noexcept;
 
 	std::pair<int, int> GetSize() const;
 	void SetSize(int newWidth, int newHeight);

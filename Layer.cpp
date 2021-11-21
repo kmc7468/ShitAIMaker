@@ -229,6 +229,14 @@ std::size_t FCLayer::GetForwardOutputSize() const noexcept {
 	return m_Weights.GetValue().GetRowSize();
 }
 
+void FCLayer::ResetAllParameters() {
+	const std::size_t inputSize = GetForwardInputSize();
+	const std::size_t outputSize = GetForwardOutputSize();
+
+	m_Weights.SetValue(RandomMatrix(outputSize, inputSize));
+	m_Biases.SetValue(RandomMatrix(outputSize, 1));
+}
+
 Matrix FCLayer::ForwardImpl(const Matrix& input) {
 	return m_Weights.GetValue() * input + m_Biases.GetValue() * Matrix(1, input.GetColumnSize(), 1);
 }
@@ -274,6 +282,8 @@ std::size_t ALayer::GetForwardInputSize() const noexcept {
 std::size_t ALayer::GetForwardOutputSize() const noexcept {
 	return 0;
 }
+
+void ALayer::ResetAllParameters() {}
 
 Matrix ALayer::ForwardImpl(const Matrix& input) {
 	const auto [row, column] = input.GetSize();

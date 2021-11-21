@@ -58,6 +58,50 @@ void PALFinalizeGraphics() noexcept {
 	FinalizeGdiplus();
 }
 
+class Win32Font final : public Font {
+public:
+	HFONT GdiFont = nullptr;
+	Gdiplus::Font GdiplusFont;
+
+public:
+	Win32Font(std::string fontFamily, float size, Font::Unit sizeUnit)
+		: Font(std::move(fontFamily), size, sizeUnit),
+		GdiplusFont(GetTString(fontFamily).data(), size, Gdiplus::FontStyleRegular, GetGdiplusUnit(sizeUnit)) {
+
+		GdiFont = CreateFontA(GetGdiSize(size, sizeUnit), 0, 0, 0, FW_REGULAR, FALSE, FALSE, FALSE,
+			DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE,
+			GetFontFamily().data());
+		if (!GdiFont) throw std::runtime_error("Failed to create a font");
+	}
+	Win32Font(const Win32Font&) = delete;
+	virtual ~Win32Font() override = default;
+
+public:
+	Win32Font& operator=(const Win32Font&) = delete;
+
+private:
+	static Gdiplus::Unit GetGdiplusUnit(Font::Unit sizeUnit) noexcept {
+		switch (sizeUnit) {
+		case Font::Points: return Gdiplus::UnitPoint;
+		case Font::Pixels: return Gdiplus::UnitPixel;
+		}
+	}
+	static int GetGdiSize(float size, Font::Unit sizeUnit) {
+		float result;
+
+		switch (sizeUnit) {
+		case Font::Points: result = size * USER_DEFAULT_SCREEN_DPI / 72; break;
+		case Font::Pixels: result = size; break;
+		}
+
+		return static_cast<int>(std::roundf(result));
+	}
+};
+
+std::shared_ptr<Font> FontRef::PALCreateFont(std::string fontFamily, float size, Font::Unit sizeUnit) {
+	return std::make_shared<Win32Font>(std::move(fontFamily), size, sizeUnit);
+}
+
 class Win32Control;
 
 struct CreateParams {
@@ -104,6 +148,13 @@ protected:
 	}
 	virtual void* PALGetHandle() noexcept override {
 		return Handle;
+	}
+
+	virtual void PALSetFont(Font& font) override {
+		if (Handle) {
+			SendMessage(Handle, WM_SETFONT,
+				reinterpret_cast<WPARAM>(static_cast<Win32Font&>(font).GdiFont), MAKELPARAM(TRUE, 0));
+		}
 	}
 
 	virtual std::pair<int, int> PALGetSize() const override {
@@ -240,6 +291,10 @@ private:
 			CreateParams.Size.first, CreateParams.Size.second, HasParent() ? GetParentHandle() : nullptr,
 			CreateParams.Menu, g_Instance, CreateParams.Param);
 		if (Handle == nullptr) throw std::runtime_error("Failed to create the handle of a control");
+
+		if (GetFont() != nullptr) {
+			PALSetFont(*GetFont());
+		}
 
 		SetWindowLongPtr(Handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 		m_OldCallback = reinterpret_cast<WNDPROC>(
