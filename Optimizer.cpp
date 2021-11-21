@@ -30,13 +30,9 @@ public:
 		float result = 0;
 
 		for (std::size_t i = 0; i < column; ++i) {
-			float squared = 0;
-
 			for (std::size_t j = 0; j < row; ++j) {
-				squared += std::powf(error(j, i), 2);
+				result += std::powf(error(j, i), 2);
 			}
-
-			result += std::sqrtf(squared);
 		}
 
 		return result / column;
