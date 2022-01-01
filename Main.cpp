@@ -1,6 +1,6 @@
+#include "MainWindow.hpp"
 #include "Optimizer.hpp"
 #include "PALGraphics.hpp"
-#include "Window.hpp"
 
 #include <memory>
 

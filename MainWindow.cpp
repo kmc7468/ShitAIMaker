@@ -1,4 +1,4 @@
-#include "Window.hpp"
+#include "MainWindow.hpp"
 
 #include "Application.hpp"
 #include "InputDialog.hpp"
