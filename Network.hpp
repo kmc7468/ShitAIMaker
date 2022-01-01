@@ -13,6 +13,8 @@ class Optimizer;
 using TrainSample = std::pair<Matrix, Matrix>;
 using TrainData = std::vector<TrainSample>;
 
+class NetworkDump;
+
 class Network final {
 private:
 	std::vector<std::unique_ptr<Layer>> m_Layers;
@@ -38,9 +40,29 @@ public:
 	std::size_t GetOutputSize() const noexcept;
 	std::size_t GetOutputSize(std::size_t layerIndex) const noexcept;
 
+	NetworkDump GetDump() const;
+
 	bool HasOptimizer() const noexcept;
 	const Optimizer& GetOptimizer() const noexcept;
 	Optimizer& GetOptimizer() noexcept;
 	void SetOptimizer(std::unique_ptr<Optimizer>&& optimizer) noexcept;
 	void Optimize(const TrainData& trainData, std::size_t epoch);
+};
+
+class NetworkDump final {
+private:
+	std::vector<LayerDump> m_Layers;
+
+public:
+	NetworkDump(std::vector<LayerDump>&& layers) noexcept;
+	NetworkDump(const NetworkDump&) = delete;
+	NetworkDump(NetworkDump&& networkDump) noexcept = default;
+	~NetworkDump() = default;
+
+public:
+	NetworkDump& operator=(const NetworkDump&) = delete;
+	NetworkDump& operator=(NetworkDump&& networkDump) noexcept = default;
+
+public:
+	const std::vector<LayerDump>& GetLayers() const noexcept;
 };

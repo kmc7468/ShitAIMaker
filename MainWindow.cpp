@@ -479,7 +479,7 @@ void MainWindowHandler::OnCreate(Control& control) {
 	CreateNewProject();
 
 	m_NetworkViewer = &dynamic_cast<Panel&>(m_Window->AddChild(PanelRef(
-		std::make_unique<NetworkViewerHandler>(m_Project->GetNetwork()))));
+		std::make_unique<NetworkViewerHandler>())));
 
 	m_NetworkViewer->SetSize(m_Window->GetClientSize());
 	m_NetworkViewer->Show();
@@ -581,7 +581,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 				UpdateText();
 
 				dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
-					SetTargetNetwork(m_Project->GetNetwork());
+					UpdateTargetNetworkDump(m_Project->GetNetwork());
 			} catch (const std::exception& exception) {
 				MessageDialog::Show(*m_Window, SAM_APPNAME, "프로젝트를 열지 못했습니다",
 					std::string("올바른 ShitAIMaker 프로젝트 파일인지 확인해 보세요. (") + exception.what() + ")",
@@ -864,7 +864,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 
 	network->AddSubItem(MenuItemSeparatorRef());
@@ -896,7 +896,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 	network->AddSubItem(MenuItemRef("Sigmoid 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -906,7 +906,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 	network->AddSubItem(MenuItemRef("Tanh 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -916,7 +916,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 	network->AddSubItem(MenuItemRef("ReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -926,7 +926,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 	network->AddSubItem(MenuItemRef("LeakyReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -936,7 +936,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 	network->AddSubItem(MenuItemRef("Softmax 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
@@ -946,7 +946,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			UpdateText();
 
-			m_NetworkViewer->Invalidate();
+			UpdateNetworkViewer();
 		})));
 
 	menu->AddItem(std::move(network));
@@ -982,6 +982,11 @@ void MainWindowHandler::UpdateText() {
 	m_Window->SetText(m_IsSaved ? newText : '*' + newText);
 }
 
+void MainWindowHandler::UpdateNetworkViewer() {
+	dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
+		UpdateTargetNetworkDump(m_Project->GetNetwork());
+}
+
 DialogResult MainWindowHandler::AskDiscardChanges() {
 	if (m_IsSaved) return DialogResult::No;
 
@@ -999,7 +1004,7 @@ void MainWindowHandler::CreateNewProject() {
 
 	if (m_NetworkViewer) {
 		dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
-			SetTargetNetwork(m_Project->GetNetwork());
+			UpdateTargetNetworkDump(m_Project->GetNetwork());
 	}
 }
 bool MainWindowHandler::SaveProject(bool saveAs) {
@@ -1189,18 +1194,18 @@ void MainWindowHandler::DoneTestOperation(std::string result) {
 void MainWindowHandler::DoneFastOptimizingOperation(std::string result) {
 	DoneOperation();
 
-	m_NetworkViewer->Invalidate();
+	UpdateNetworkViewer();
 
 	MessageDialog::Show(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
 		MessageDialog::Information, MessageDialog::Ok);
 }
 void MainWindowHandler::DoneOptimizingOperation() {
-	m_NetworkViewer->Invalidate();
+	UpdateNetworkViewer(); // TODO: NetworkDump를 받아오도록 수정
 }
 void MainWindowHandler::DoneOptimizingOperation(std::string result) {
 	DoneOperation();
 
-	m_NetworkViewer->Invalidate();
+	UpdateNetworkViewer();
 
 	MessageDialog::Show(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
 		MessageDialog::Information, MessageDialog::Ok);

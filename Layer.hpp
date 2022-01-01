@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 class ReadonlyVariable;
@@ -147,6 +148,8 @@ public:
 	Parameter AddParameter(std::string name, Matrix initialValue = {});
 };
 
+class LayerDump;
+
 class Layer {
 private:
 	std::string m_Name;
@@ -182,6 +185,7 @@ public:
 	const ParameterTable& GetParameterTable() const noexcept;
 	ParameterTable& GetParameterTable() noexcept;
 
+	virtual LayerDump GetDump(const LayerDump& prevLayerDump) const = 0;
 	virtual void ResetAllParameters() = 0;
 
 protected:
@@ -205,6 +209,7 @@ public:
 	virtual std::size_t GetForwardInputSize() const noexcept override;
 	virtual std::size_t GetForwardOutputSize() const noexcept override;
 
+	virtual LayerDump GetDump(const LayerDump& prevLayerDump) const override;
 	virtual void ResetAllParameters() override;
 
 protected:
@@ -237,6 +242,7 @@ public:
 	virtual std::size_t GetForwardInputSize() const noexcept override;
 	virtual std::size_t GetForwardOutputSize() const noexcept override;
 
+	virtual LayerDump GetDump(const LayerDump& prevLayerDump) const override;
 	virtual void ResetAllParameters() override;
 
 protected:
@@ -269,9 +275,32 @@ public:
 	virtual std::size_t GetForwardInputSize() const noexcept override;
 	virtual std::size_t GetForwardOutputSize() const noexcept override;
 
+	virtual LayerDump GetDump(const LayerDump& prevLayerDump) const override;
 	virtual void ResetAllParameters() override;
 
 protected:
 	virtual Matrix ForwardImpl(const Matrix& input) override;
 	virtual Matrix BackwardImpl(const Matrix& input) override;
+};
+
+class LayerDump final {
+private:
+	std::string_view m_Name;
+	std::vector<std::pair<std::size_t, std::vector<float>>> m_DrawnUnits;
+
+public:
+	explicit LayerDump(std::size_t inputSize);
+	LayerDump(const std::string_view& name, const LayerDump& prevLayerDump,
+		const std::vector<std::vector<float>>& units, const std::vector<std::size_t>& drawnUnits);
+	LayerDump(const LayerDump&) = delete;
+	LayerDump(LayerDump&& layerDump) noexcept = default;
+	~LayerDump() = default;
+
+public:
+	LayerDump& operator=(const LayerDump&) = delete;
+	LayerDump& operator=(LayerDump&& layerDump) noexcept = default;
+
+public:
+	std::string_view GetName() const noexcept;
+	const std::vector<std::pair<std::size_t, std::vector<float>>>& GetDrawnUnits() const noexcept;
 };

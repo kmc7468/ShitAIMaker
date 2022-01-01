@@ -3,14 +3,17 @@
 #include "Network.hpp"
 #include "PALGraphics.hpp"
 
+#include <optional>
+
 class NetworkViewerHandler final : public PanelEventHandler {
 private:
 	Panel* m_Panel = nullptr;
 
+	BrushRef m_BlackBrush = std::shared_ptr<Brush>();
 	BrushRef m_CloudBrush = std::shared_ptr<Brush>();
 	BrushRef m_BelizeHoleBrush = std::shared_ptr<Brush>();
 
-	const Network* m_TargetNetwork = nullptr;
+	std::optional<NetworkDump> m_TargetNetworkDump;
 	int m_ZoomLevel = 0;
 	int m_MovedX = 0, m_MovedY = 0;
 
@@ -18,7 +21,7 @@ private:
 	int m_MouseX = 0, m_MouseY = 0;
 
 public:
-	NetworkViewerHandler(const Network& targetNetwork) noexcept;
+	NetworkViewerHandler() noexcept = default;
 	NetworkViewerHandler(const NetworkViewerHandler&) = delete;
 	virtual ~NetworkViewerHandler() override = default;
 
@@ -31,5 +34,5 @@ public:
 	virtual void OnMouseWheel(Control& control, int x, int y, MouseWheel mouseWheel) override;
 
 public:
-	void SetTargetNetwork(const Network& newTargetNetwork);
+	void UpdateTargetNetworkDump(const Network& targetNetwork);
 };

@@ -24,81 +24,33 @@
 #define SAM_ROUND(x) static_cast<int>(std::roundf(x))
 #define SAM_MAGNIFY(x) SAM_ROUND((x) * SAM_ZOOM)
 
-NetworkViewerHandler::NetworkViewerHandler(const Network& targetNetwork) noexcept
-	: m_TargetNetwork(&targetNetwork) {}
-
 void NetworkViewerHandler::OnCreate(Control& control) {
 	m_Panel = &dynamic_cast<Panel&>(control);
 
+	m_BlackBrush = SolidBrushRef({ 0, 0, 0 });
 	m_CloudBrush = SolidBrushRef({ 236, 240, 241 });
 	m_BelizeHoleBrush = SolidBrushRef({ 41, 128, 185 });
 }
 void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
+	if (!m_TargetNetworkDump) return;
+
 	const auto ctx = graphics.GetContext2D();
 
-	const std::size_t layerCount = m_TargetNetwork->GetLayerCount();
+	const auto& layers = m_TargetNetworkDump->GetLayers();
+	const std::size_t layerCount = layers.size();
+	std::vector<std::tuple<int, int, int, int>> layerRectangles;
 
-	if (layerCount == 0) return;
-
-	const int networkInputSize = static_cast<int>(m_TargetNetwork->GetInputSize());
-
-	if (layerCount == 0) return;
-
-	std::vector<std::tuple<int, int, int, int, int>> layers;
-	std::vector<std::vector<std::vector<float>>> lines;
-
-	layers.push_back({ m_MovedX, 0,
-		SAM_LAYERWIDTH(networkInputSize), SAM_LAYERHEIGHT(networkInputSize), networkInputSize });
-
-	int x = std::get<0>(layers[0]) + std::get<2>(layers[0]);
-	int maxHeight = std::get<3>(layers[0]);
+	int x = m_MovedX;
+	int maxHeight = 0;
 
 	for (std::size_t i = 0; i < layerCount; ++i) {
-		const Layer& layer = m_TargetNetwork->GetLayer(i);
-		const std::string_view layerName = layer.GetName();
+		const auto& layer = layers[i];
 
-		const int unitCount = static_cast<int>(m_TargetNetwork->GetOutputSize(i));
+		const int unitCount = static_cast<int>(layer.GetDrawnUnits().size());
 		const int width = SAM_LAYERWIDTH(unitCount);
 		const int height = SAM_LAYERHEIGHT(unitCount);
 
-		const std::size_t prevUnitCount = std::get<4>(layers.back());
-		auto& layerLines = lines.emplace_back();
-
-		if (layerName == "FCLayer") {
-			const FCLayer& fcLayer = static_cast<const FCLayer&>(layer);
-			float maxWeight = 0;
-
-			for (std::size_t j = 0; j < prevUnitCount; ++j) {
-				auto& unitLines = layerLines.emplace_back();
-				const ReadonlyParameter weights = fcLayer.GetParameterTable().GetParameter("Weights");
-				const Matrix& weightsMatrix = weights.GetValue();
-
-				for (std::size_t k = 0; k < static_cast<std::size_t>(unitCount); ++k) {
-					const float weight = weightsMatrix(k, j);
-
-					unitLines.push_back(weight);
-
-					maxWeight = std::max(maxWeight, std::fabsf(weight));
-				}
-			}
-
-			for (auto& unit : layerLines) {
-				for (auto& weight : unit) {
-					weight = std::fabsf(weight) / maxWeight;
-				}
-			}
-		} else if (layerName == "ALayer") {
-			for (std::size_t j = 0; j < prevUnitCount; ++j) {
-				layerLines.push_back(std::vector(unitCount, 0.f));
-				layerLines.back()[j] = 1;
-			}
-		} else if (layerName == "SMLayer") {
-			for (std::size_t j = 0; j < prevUnitCount; ++j) {
-				layerLines.push_back(std::vector(unitCount, 1.f));
-			}
-		}
-
-		layers.push_back({ x + SAM_LAYERINTERVAL, 0, width, height, unitCount });
+		layerRectangles.push_back({ x + SAM_LAYERINTERVAL, 0, width, height });
 
 		x += width + SAM_LAYERINTERVAL;
 		maxHeight = std::max(maxHeight, height);
@@ -106,8 +58,12 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 
 	ctx->SetFont(FontRef("¸¼Àº °íµñ", 11 * SAM_ZOOM));
 
-	for (std::size_t i = 0; i < layers.size(); ++i) {
-		auto& [x, y, width, height, unitCount] = layers[i];
+	for (std::size_t i = 0; i < layerCount; ++i) {
+		const auto& layer = layers[i];
+		auto& [x, y, width, height] = layerRectangles[i];
+
+		const auto& units = layer.GetDrawnUnits();
+		const int unitCount = static_cast<int>(units.size());
 
 		y = SAM_ROUND(m_MovedY + (maxHeight - height) / 2.f);
 
@@ -120,48 +76,35 @@ void NetworkViewerHandler::OnPaint(Control&, Graphics& graphics) {
 				SAM_MAGNIFY(SAM_UNITSIZE), SAM_MAGNIFY(SAM_UNITSIZE));
 		}
 
-		std::string layerName;
-
-		if (i == 0) {
-			layerName = "ÀÔ·ÂÃþ";
-		} else {
-			const Layer& layer = m_TargetNetwork->GetLayer(i - 1);
-			const std::string_view layerRealName = layer.GetName();
-
-			if (layerRealName == "FCLayer") {
-				layerName = "Àü°áÇÕÃþ";
-			} else if (layerRealName == "ALayer") {
-				switch (static_cast<const ALayer&>(layer).GetAFunction()) {
-				case AFunction::Sigmoid: layerName = "Sigmoid È°¼ºÈ­Ãþ"; break;
-				case AFunction::Tanh: layerName = "Tanh È°¼ºÈ­Ãþ"; break;
-				case AFunction::ReLU: layerName = "ReLU È°¼ºÈ­Ãþ"; break;
-				case AFunction::LeakyReLU: layerName = "LeakyReLU È°¼ºÈ­Ãþ"; break;
-				}
-			} else if (layerRealName == "SMLayer") {
-				layerName = "Softmax È°¼ºÈ­Ãþ";
-			}
+		ctx->SetBrush(m_BlackBrush);
+		for (int j = 0; j < unitCount; ++j) {
+			ctx->DrawString('#' + std::to_string(units[j].first),
+				SAM_MAGNIFY(x + SAM_UNITX(j)), SAM_MAGNIFY(y + SAM_UNITY(j)));
 		}
 
-		ctx->DrawString(layerName, SAM_MAGNIFY(x), SAM_MAGNIFY(y + height + SAM_UNITMARGIN));
+		ctx->DrawString(std::string(layer.GetName()), SAM_MAGNIFY(x), SAM_MAGNIFY(y + height + SAM_UNITMARGIN));
 	}
 
-	for (std::size_t i = 0; i < lines.size(); ++i) {
-		const auto& layerLines = lines[i];
+	for (std::size_t i = 1; i < layerCount; ++i) {
+		const auto& layer = layers[i];
 
-		for (std::size_t j = 0; j < layerLines.size(); ++j) {
-			const auto& unitLines = layerLines[j];
+		const auto& units = layer.GetDrawnUnits();
+		const std::size_t unitCount = units.size();
+		const std::size_t prevUnitCount = layers[i - 1].GetDrawnUnits().size();
 
-			for (std::size_t k = 0; k < unitLines.size(); ++k) {
-				const float width = unitLines[k];
+		for (std::size_t j = 0; j < unitCount; ++j) {
+			for (std::size_t k = 0; k < prevUnitCount; ++k) {
+				const float width = units[j].second[k];
 
 				if (width == 0) continue;
 
 				ctx->SetPen(SolidPenRef(Color::Black,
 					(SAM_LINEMINWIDTH + width * (SAM_LINEMAXWIDTH - SAM_LINEMINWIDTH)) * SAM_ZOOM));
-				ctx->DrawLine(SAM_MAGNIFY(std::get<0>(layers[i]) + SAM_UNITX(static_cast<int>(j)) + SAM_UNITSIZE),
-					SAM_MAGNIFY(std::get<1>(layers[i]) + SAM_UNITY(static_cast<int>(j)) + SAM_UNITSIZE / 2),
-					SAM_MAGNIFY(std::get<0>(layers[i + 1]) + SAM_UNITX(static_cast<int>(k))),
-					SAM_MAGNIFY(std::get<1>(layers[i + 1]) + SAM_UNITY(static_cast<int>(k)) + SAM_UNITSIZE / 2));
+				ctx->DrawLine(
+					SAM_MAGNIFY(std::get<0>(layerRectangles[i - 1]) + SAM_UNITX(static_cast<int>(k)) + SAM_UNITSIZE),
+					SAM_MAGNIFY(std::get<1>(layerRectangles[i - 1]) + SAM_UNITY(static_cast<int>(k)) + SAM_UNITSIZE / 2),
+					SAM_MAGNIFY(std::get<0>(layerRectangles[i]) + SAM_UNITX(static_cast<int>(j))),
+					SAM_MAGNIFY(std::get<1>(layerRectangles[i]) + SAM_UNITY(static_cast<int>(j)) + SAM_UNITSIZE / 2));
 			}
 		}
 	}
@@ -203,8 +146,12 @@ void NetworkViewerHandler::OnMouseWheel(Control&, int, int, MouseWheel mouseWhee
 	}
 }
 
-void NetworkViewerHandler::SetTargetNetwork(const Network& newTargetNetwork) {
-	m_TargetNetwork = &newTargetNetwork;
+void NetworkViewerHandler::UpdateTargetNetworkDump(const Network& targetNetwork) {
+	if (targetNetwork.GetLayerCount() > 0 && targetNetwork.GetInputSize() > 0) {
+		m_TargetNetworkDump = targetNetwork.GetDump();
+	} else {
+		m_TargetNetworkDump = std::nullopt;
+	}
 
 	m_Panel->Invalidate();
 }

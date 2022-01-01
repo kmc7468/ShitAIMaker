@@ -83,6 +83,18 @@ std::size_t Network::GetOutputSize(std::size_t layerIndex) const noexcept {
 	return 0;
 }
 
+NetworkDump Network::GetDump() const {
+	std::vector<LayerDump> layers;
+
+	layers.emplace_back(GetInputSize());
+
+	for (auto& layer : m_Layers) {
+		layers.push_back(layer->GetDump(layers.back()));
+	}
+
+	return NetworkDump(std::move(layers));
+}
+
 bool Network::HasOptimizer() const noexcept {
 	return m_Optimizer != nullptr;
 }
@@ -102,4 +114,11 @@ void Network::Optimize(const TrainData& trainData, std::size_t epoch) {
 	assert(m_Optimizer != nullptr);
 
 	m_Optimizer->Optimize(trainData, epoch);
+}
+
+NetworkDump::NetworkDump(std::vector<LayerDump>&& layers) noexcept
+	: m_Layers(std::move(layers)) {}
+
+const std::vector<LayerDump>& NetworkDump::GetLayers() const noexcept {
+	return m_Layers;
 }

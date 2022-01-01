@@ -42,6 +42,8 @@ private:
 	MenuRef CreateMenu();
 	void UpdateText();
 
+	void UpdateNetworkViewer();
+
 private:
 	DialogResult AskDiscardChanges();
 	void CreateNewProject();

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <utility>
 
 Variable::Variable(std::map<std::string, Matrix>::iterator iterator) noexcept
 	: m_Iterator(iterator) {}
@@ -229,6 +228,27 @@ std::size_t FCLayer::GetForwardOutputSize() const noexcept {
 	return m_Weights.GetValue().GetRowSize();
 }
 
+LayerDump FCLayer::GetDump(const LayerDump& prevLayerDump) const {
+	const std::size_t inputSize = GetForwardInputSize();
+	const std::size_t outputSize = GetForwardOutputSize();
+	std::vector<std::vector<float>> units;
+
+	for (std::size_t i = 0; i < outputSize; ++i) {
+		std::vector<float>& weights = units.emplace_back();
+
+		for (std::size_t j = 0; j < inputSize; ++j) {
+			weights.push_back(m_Weights.GetValue()(i, j));
+		}
+	}
+
+	std::vector<std::size_t> drawnUnits(outputSize);
+
+	for (std::size_t i = 0; i < outputSize; ++i) {
+		drawnUnits[i] = i;
+	}
+
+	return LayerDump("Àü°áÇÕÃþ", prevLayerDump, units, drawnUnits);
+}
 void FCLayer::ResetAllParameters() {
 	const std::size_t inputSize = GetForwardInputSize();
 	const std::size_t outputSize = GetForwardOutputSize();
@@ -283,6 +303,43 @@ std::size_t ALayer::GetForwardOutputSize() const noexcept {
 	return 0;
 }
 
+LayerDump ALayer::GetDump(const LayerDump& prevLayerDump) const {
+	std::string_view name;
+
+	switch (m_AFunction) {
+	case AFunction::Sigmoid:
+		name = "Sigmoid È°¼ºÈ­Ãþ";
+		break;
+
+	case AFunction::Tanh:
+		name = "Tanh È°¼ºÈ­Ãþ";
+		break;
+
+	case AFunction::ReLU:
+		name = "ReLU È°¼ºÈ­Ãþ";
+		break;
+
+	case AFunction::LeakyReLU:
+		name = "LeakyReLU È°¼ºÈ­Ãþ";
+		break;
+	}
+
+	const std::size_t inputSize = prevLayerDump.GetDrawnUnits().size();
+	std::vector<std::vector<float>> units;
+
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		units.push_back(std::vector<float>(inputSize, 0.f));
+		units.back()[i] = 1.f;
+	}
+
+	std::vector<std::size_t> drawnUnits(inputSize);
+
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		drawnUnits[i] = i;
+	}
+
+	return LayerDump(name, prevLayerDump, units, drawnUnits);
+}
 void ALayer::ResetAllParameters() {}
 
 Matrix ALayer::ForwardImpl(const Matrix& input) {
@@ -351,6 +408,22 @@ std::size_t SMLayer::GetForwardOutputSize() const noexcept {
 	return 0;
 }
 
+LayerDump SMLayer::GetDump(const LayerDump& prevLayerDump) const {
+	const std::size_t inputSize = prevLayerDump.GetDrawnUnits().size();
+	std::vector<std::vector<float>> units;
+
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		units.push_back(std::vector<float>(inputSize, 1.f));
+	}
+
+	std::vector<std::size_t> drawnUnits(inputSize);
+
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		drawnUnits[i] = i;
+	}
+
+	return LayerDump("Softmax È°¼ºÈ­Ãþ", prevLayerDump, units, drawnUnits);
+}
 void SMLayer::ResetAllParameters() {}
 
 Matrix SMLayer::ForwardImpl(const Matrix& input) {
@@ -406,4 +479,49 @@ Matrix SMLayer::BackwardImpl(const Matrix& input) {
 	}
 
 	return result;
+}
+
+LayerDump::LayerDump(std::size_t inputSize)
+	: m_Name("ÀÔ·ÂÃþ") {
+	for (std::size_t i = 0; i < inputSize; ++i) {
+		m_DrawnUnits.push_back(std::make_pair(i, std::vector<float>{}));
+	}
+}
+LayerDump::LayerDump(const std::string_view& name, const LayerDump& prevLayerDump,
+	const std::vector<std::vector<float>>& units, const std::vector<std::size_t>& drawnUnits)
+	: m_Name(name) {
+	const auto& prevDrawnUnits = prevLayerDump.GetDrawnUnits();
+
+	float maxWeight = 0;
+
+	for (const auto& unitIndex : drawnUnits) {
+		std::pair<std::size_t, std::vector<float>> unit;
+
+		unit.first = unitIndex;
+
+		for (const auto& [prevUnitIndex, prevUnitWeights] : prevDrawnUnits) {
+			const float weight = std::abs(units[unitIndex][prevUnitIndex]);
+
+			unit.second.push_back(weight);
+
+			maxWeight = std::max(weight, maxWeight);
+		}
+
+		m_DrawnUnits.push_back(std::move(unit));
+	}
+
+	if (maxWeight == 0) return;
+
+	for (auto& [unitIndex, weights] : m_DrawnUnits) {
+		for (auto& weight : weights) {
+			weight /= maxWeight;
+		}
+	}
+}
+
+std::string_view LayerDump::GetName() const noexcept {
+	return m_Name;
+}
+const std::vector<std::pair<std::size_t, std::vector<float>>>& LayerDump::GetDrawnUnits() const noexcept {
+	return m_DrawnUnits;
 }
