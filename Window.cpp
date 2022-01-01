@@ -43,11 +43,8 @@ namespace {
 
 			if (stream.eof()) break;
 			else if (stream.fail() || stream.bad()) {
-				MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
-					"숫자만 입력했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+					"숫자만 입력했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
 				return std::nullopt;
 			}
@@ -59,19 +56,13 @@ namespace {
 		const std::size_t sampleCount = numbers.size() / sampleSize;
 
 		if (numbers.size() % sampleSize != 0) {
-			MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
-				"입력 및 출력의 크기를 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
+			MessageDialog::Show(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+				"입력 및 출력의 크기를 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
 			return std::nullopt;
 		} else if (sampleCount == 0) {
-			MessageDialogRef messageDialog(window, SAM_APPNAME, "올바르지 않은 형식입니다",
-				"데이터를 입력했는지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
+			MessageDialog::Show(window, SAM_APPNAME, "올바르지 않은 형식입니다",
+				"데이터를 입력했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
 			return std::nullopt;
 		}
@@ -422,10 +413,8 @@ public:
 	}
 	bool OnApplyButtonClick() {
 		if (m_LossFunctionNameComboBox->GetSelectedItemIndex() == ComboBox::NoSelected) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "손실 함수가 선택되지 않았습니다", {},
+			MessageDialog::Show(m_WindowDialog->GetWindow(), SAM_APPNAME, "손실 함수가 선택되지 않았습니다", {},
 				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
 
 			return false;
 		}
@@ -594,11 +583,9 @@ MenuRef MainWindowHandler::CreateMenu() {
 				dynamic_cast<NetworkViewerHandler&>(m_NetworkViewer->GetEventHandler()).
 					SetTargetNetwork(m_Project->GetNetwork());
 			} catch (const std::exception& exception) {
-				MessageDialogRef dialog(*m_Window, SAM_APPNAME, "프로젝트를 열지 못했습니다",
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "프로젝트를 열지 못했습니다",
 					std::string("올바른 ShitAIMaker 프로젝트 파일인지 확인해 보세요. (") + exception.what() + ")",
 					MessageDialog::Error, MessageDialog::Ok);
-
-				dialog->Show();
 			}
 		})));
 	project->AddSubItem(MenuItemRef("저장", std::make_unique<FunctionalMenuItemEventHandler>(
@@ -636,16 +623,6 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 	network->AddSubItem(MenuItemRef("테스트", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			if (!m_Project->GetNetwork().HasOptimizer()) {
-				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "옵티마이저가 없습니다",
-					"옵티마이저를 설정했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
-
-				return;
-			}
-
 			const auto trainData = AskTrainData("테스트 데이터 입력 - 실행", "TestData.txt");
 
 			if (!trainData) return;
@@ -700,16 +677,6 @@ MenuRef MainWindowHandler::CreateMenu() {
 	network->AddSubItem(MenuItemSeparatorRef());
 	network->AddSubItem(MenuItemRef("빠른 학습", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			if (!m_Project->GetNetwork().HasOptimizer()) {
-				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "옵티마이저가 없습니다",
-					"옵티마이저를 설정했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
-
-				return;
-			}
-
 			const auto trainData = AskTrainData("학습 데이터 입력 - 빠른 학습", "TrainData.txt");
 
 			if (!trainData) return;
@@ -784,16 +751,6 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("학습 및 시각화", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			if (!m_Project->GetNetwork().HasOptimizer()) {
-				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "옵티마이저가 없습니다",
-					"옵티마이저를 설정했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
-
-				return;
-			}
-
 			const auto trainData = AskTrainData("학습 데이터 입력 - 학습 및 시각화", "TrainData.txt");
 
 			if (!trainData) return;
@@ -971,7 +928,7 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 			m_NetworkViewer->Invalidate();
 		})));
-	network->AddSubItem(MenuItemRef("ReakyReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
+	network->AddSubItem(MenuItemRef("LeakyReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
 			m_Project->GetNetwork().AddLayer(std::make_unique<ALayer>(AFunction::LeakyReLU));
 
@@ -1028,11 +985,9 @@ void MainWindowHandler::UpdateText() {
 DialogResult MainWindowHandler::AskDiscardChanges() {
 	if (m_IsSaved) return DialogResult::No;
 
-	MessageDialogRef dialog(*m_Window, SAM_APPNAME, "저장되지 않은 변경 사항이 있습니다",
+	return MessageDialog::Show(*m_Window, SAM_APPNAME, "저장되지 않은 변경 사항이 있습니다",
 		"저장되지 않은 변경 사항은 모두 삭제됩니다. 변경 사항을 저장할까요?",
 		MessageDialog::Warning, MessageDialog::Yes | MessageDialog::No | MessageDialog::Cancel);
-
-	return dialog->Show();
 }
 void MainWindowHandler::CreateNewProject() {
 	m_Project = std::make_unique<Project>();
@@ -1068,24 +1023,24 @@ bool MainWindowHandler::SaveProject(bool saveAs) {
 
 		return true;
 	} catch (const std::exception& exception) {
-		MessageDialogRef dialog(*m_Window, SAM_APPNAME, "프로젝트를 저장하지 못했습니다",
+		MessageDialog::Show(*m_Window, SAM_APPNAME, "프로젝트를 저장하지 못했습니다",
 			std::string("저장하려는 경로가 올바른지 확인해 보세요. (") + exception.what() + ")",
 			MessageDialog::Error, MessageDialog::Ok);
-
-		dialog->Show();
 
 		return false;
 	}
 }
 
 std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle, const std::filesystem::path& path) {
-	if (m_Project->GetNetwork().GetLayerCount() == 0) {
-	emptyError:
-		MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "올바르지 않은 네트워크 구성입니다",
-			"전결합층이 적어도 1개 이상 포함되어 있는지 확인해 보세요.",
-			MessageDialog::Error, MessageDialog::Ok);
+	if (!m_Project->GetNetwork().HasOptimizer()) {
+		MessageDialog::Show(*m_Window, SAM_APPNAME, "옵티마이저가 없습니다",
+			"옵티마이저를 설정했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
-		messageDialog->Show();
+		return std::nullopt;
+	} else if (m_Project->GetNetwork().GetLayerCount() == 0) {
+	emptyError:
+		MessageDialog::Show(*m_Window, SAM_APPNAME, "올바르지 않은 네트워크 구성입니다",
+			"전결합층이 적어도 1개 이상 포함되어 있는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
 		return std::nullopt;
 	}
@@ -1096,28 +1051,23 @@ std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle
 	if (inputSize == 0 || outputSize == 0) goto emptyError;
 
 	if (!path.empty() && std::filesystem::exists(path)) {
-		MessageDialogRef fileFoundMessageDialog(*m_Window, SAM_APPNAME, "데이터 파일을 발견했습니다",
-			"데이터를 " + path.string() + " 파일에서 불러올까요? 데이터를 파일에서 불러올 경우 학습 결과는 평균 손실 함숫값만 출력됩니다.",
+		const DialogResult result = MessageDialog::Show(*m_Window, SAM_APPNAME, "데이터 파일을 발견했습니다",
+			"데이터를 " + path.string() + " 파일에서 불러올까요? "
+			"데이터를 파일에서 불러올 경우 학습 결과는 평균 손실 함숫값만 출력됩니다.",
 			MessageDialog::Information, MessageDialog::Yes | MessageDialog::No | MessageDialog::Cancel);
-
-		const DialogResult result = fileFoundMessageDialog->Show();
 
 		if (result == DialogResult::Yes) {
 			std::ifstream iss(path);
 
 			m_IsFileMode = true;
 
-			if (!iss) {
-				MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "데이터 파일을 열지 못했습니다",
-					"올바른 데이터 파일인지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+			if (iss) return ReadTrainDataFromStream(*m_Window, iss, inputSize, outputSize);
+			else {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "데이터 파일을 열지 못했습니다",
+					"올바른 데이터 파일인지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 
 				return std::nullopt;
 			}
-
-			return ReadTrainDataFromStream(*m_Window, iss, inputSize, outputSize);
 		} else if (result == DialogResult::Cancel) return std::nullopt;
 	}
 
@@ -1148,17 +1098,11 @@ std::optional<float> MainWindowHandler::AskLearningRate(std::string dialogTitle)
 			iss >> learningRate;
 
 			if (iss.eof()) {
-				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"학습률을 입력했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"학습률을 입력했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else if (iss.fail() || iss.bad() || learningRate <= 0 || learningRate > 1) {
-				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"학습률이 0 초과 1 미만의 실수인지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"학습률이 0 초과 1 미만의 실수인지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else {
 				result = learningRate;
 			}
@@ -1181,17 +1125,11 @@ std::optional<std::size_t> MainWindowHandler::AskEpoch(std::string dialogTitle) 
 			iss >> epoch;
 
 			if (iss.eof()) {
-				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"에포크를 입력했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"에포크를 입력했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else if (iss.fail() || iss.bad() || epoch == 0) {
-				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"에포크가 자연수인지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"에포크가 자연수인지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else {
 				result = epoch;
 			}
@@ -1214,17 +1152,11 @@ std::optional<std::size_t> MainWindowHandler::AskInputOrOutputSize(std::string d
 			iss >> inputOrOutputSize;
 
 			if (iss.eof()) {
-				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"크기를 입력했는지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+				MessageDialog::Show(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"크기를 입력했는지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else if (iss.fail() || iss.bad() || inputOrOutputSize == 0) {
 				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-					"크기가 자연수인지 확인해 보세요.",
-					MessageDialog::Error, MessageDialog::Ok);
-
-				messageDialog->Show();
+					"크기가 자연수인지 확인해 보세요.", MessageDialog::Error, MessageDialog::Ok);
 			} else {
 				result = inputOrOutputSize;
 			}
@@ -1251,20 +1183,16 @@ void MainWindowHandler::DoneOperation() {
 void MainWindowHandler::DoneTestOperation(std::string result) {
 	DoneOperation();
 
-	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "테스트 결과", std::move(result),
+	MessageDialog::Show(*m_Window, SAM_APPNAME, "테스트 결과", std::move(result),
 		MessageDialog::Information, MessageDialog::Ok);
-
-	messageDialog->Show();
 }
 void MainWindowHandler::DoneFastOptimizingOperation(std::string result) {
 	DoneOperation();
 
 	m_NetworkViewer->Invalidate();
 
-	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
+	MessageDialog::Show(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
 		MessageDialog::Information, MessageDialog::Ok);
-
-	messageDialog->Show();
 }
 void MainWindowHandler::DoneOptimizingOperation() {
 	m_NetworkViewer->Invalidate();
@@ -1274,8 +1202,6 @@ void MainWindowHandler::DoneOptimizingOperation(std::string result) {
 
 	m_NetworkViewer->Invalidate();
 
-	MessageDialogRef messageDialog(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
+	MessageDialog::Show(*m_Window, SAM_APPNAME, "학습 결과", std::move(result),
 		MessageDialog::Information, MessageDialog::Ok);
-
-	messageDialog->Show();
 }

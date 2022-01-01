@@ -633,6 +633,13 @@ MessageDialog::Button MessageDialog::GetButtons() const noexcept {
 DialogResult MessageDialog::Show() {
 	return PALShow();
 }
+DialogResult MessageDialog::Show(Window& owner, std::string dialogTitle, std::string title,
+	std::string message, Icon icon, Button buttons) {
+	MessageDialogRef messageDialog(owner, std::move(dialogTitle), std::move(title),
+		std::move(message), icon, buttons);
+
+	return messageDialog->Show();
+}
 
 MessageDialog::Button operator|(MessageDialog::Button lhs, MessageDialog::Button rhs) noexcept {
 	return static_cast<MessageDialog::Button>(static_cast<int>(lhs) | static_cast<int>(rhs));

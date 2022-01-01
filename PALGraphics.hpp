@@ -953,6 +953,8 @@ public:
 
 public:
 	virtual DialogResult Show() override;
+	static DialogResult Show(Window& owner, std::string dialogTitle, std::string title, std::string message,
+		Icon icon = None, Button buttons = Ok);
 
 protected:
 	virtual DialogResult PALShow() = 0;
