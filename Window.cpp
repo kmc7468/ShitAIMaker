@@ -1,6 +1,7 @@
 #include "Window.hpp"
 
 #include "Application.hpp"
+#include "InputDialog.hpp"
 #include "Layer.hpp"
 #include "Matrix.hpp"
 #include "NetworkViewer.hpp"
@@ -116,440 +117,6 @@ public:
 		if (m_OnClick) {
 			m_OnClick(menuItem);
 		}
-	}
-};
-
-class TrainDataInputDialogHandler final : public WindowDialogEventHandler {
-private:
-	WindowDialog* m_WindowDialog = nullptr;
-
-	TextBox* m_TrainDataTextBox = nullptr;
-	Button* m_OkButton = nullptr;
-	Button* m_CancelButton = nullptr;
-
-	std::size_t m_InputSize, m_OutputSize;
-	std::optional<TrainData> m_TrainData;
-
-public:
-	TrainDataInputDialogHandler(std::size_t inputSize, std::size_t outputSize) noexcept
-		: m_InputSize(inputSize), m_OutputSize(outputSize) {
-		assert(inputSize > 0);
-		assert(outputSize > 0);
-	}
-	TrainDataInputDialogHandler(const TrainDataInputDialogHandler&) = delete;
-	virtual ~TrainDataInputDialogHandler() override = default;
-
-public:
-	TrainDataInputDialogHandler& operator=(const TrainDataInputDialogHandler&) = delete;
-
-public:
-	bool HasTrainData() const noexcept {
-		return m_TrainData.has_value();
-	}
-	const TrainData& GetTrainData() const noexcept {
-		return *m_TrainData;
-	}
-
-public:
-	virtual void OnCreate(WindowDialog& dialog) override {
-		m_WindowDialog = &dialog;
-
-		m_TrainDataTextBox = &dynamic_cast<TextBox&>(dialog.AddChild(
-			TextBoxRef(std::make_unique<TextBoxEventHandler>(), true)));
-
-		m_TrainDataTextBox->SetLocation(10, 10);
-		m_TrainDataTextBox->Show();
-
-		class OkButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			OkButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			OkButtonHandler(const OkButtonHandler&) = delete;
-			virtual ~OkButtonHandler() override = default;
-
-		public:
-			OkButtonHandler& operator=(const OkButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<TrainDataInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-			}
-		};
-
-		m_OkButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<OkButtonHandler>(*m_WindowDialog))));
-
-		m_OkButton->SetText("확인");
-		m_OkButton->Show();
-
-		class CancelButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			CancelButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			CancelButtonHandler(const CancelButtonHandler&) = delete;
-			virtual ~CancelButtonHandler() override = default;
-
-		public:
-			CancelButtonHandler& operator=(const CancelButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<TrainDataInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnCancelButtonClick();
-			}
-		};
-
-		m_CancelButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<CancelButtonHandler>(*m_WindowDialog))));
-
-		m_CancelButton->SetText("취소");
-		m_CancelButton->Show();
-
-		m_WindowDialog->SetMinimumSize(400, 200);
-	}
-
-	virtual void OnResize(WindowDialog&) override {
-		const auto& [clientWidth, clientHeight] = m_WindowDialog->GetClientSize();
-
-		if (m_TrainDataTextBox) {
-			m_TrainDataTextBox->SetSize(clientWidth - 20, clientHeight - (30 + 24));
-
-			m_OkButton->SetLocation(clientWidth - (20 + 82 * 2), clientHeight - (10 + 24));
-			m_OkButton->SetSize(82, 24);
-
-			m_CancelButton->SetLocation(clientWidth - (10 + 82), clientHeight - (10 + 24));
-			m_CancelButton->SetSize(82, 24);
-		}
-	}
-
-public:
-	void OnOkButtonClick() {
-		std::istringstream iss(m_TrainDataTextBox->GetText() + ' ');
-
-		const auto trainData = ReadTrainDataFromStream(m_WindowDialog->GetWindow(), iss,
-			m_InputSize, m_OutputSize);
-
-		if (trainData) {
-			m_TrainData.emplace(std::move(*trainData));
-
-			m_WindowDialog->Close(DialogResult::Ok);
-		}
-	}
-	void OnCancelButtonClick() {
-		m_WindowDialog->Close(DialogResult::Cancel);
-	}
-};
-
-class LearningRateInputDialogHandler final : public WindowDialogEventHandler {
-private:
-	WindowDialog* m_WindowDialog = nullptr;
-
-	TextBox* m_LearningRateTextBox = nullptr;
-	Button* m_OkButton = nullptr;
-	Button* m_CancelButton = nullptr;
-
-	std::optional<float> m_LearningRate;
-
-public:
-	LearningRateInputDialogHandler() noexcept = default;
-	LearningRateInputDialogHandler(const LearningRateInputDialogHandler&) = delete;
-	virtual ~LearningRateInputDialogHandler() override = default;
-
-public:
-	LearningRateInputDialogHandler& operator=(const LearningRateInputDialogHandler&) = delete;
-
-public:
-	bool HasLearningRate() const noexcept {
-		return m_LearningRate.has_value();
-	}
-	float GetLearningRate() const noexcept {
-		return *m_LearningRate;
-	}
-
-public:
-	virtual void OnCreate(WindowDialog& dialog) override {
-		m_WindowDialog = &dialog;
-
-		class LearningRateTextBoxHandler final : public TextBoxEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			LearningRateTextBoxHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			LearningRateTextBoxHandler(const LearningRateTextBoxHandler&) = delete;
-			virtual ~LearningRateTextBoxHandler() override = default;
-
-		public:
-			LearningRateTextBoxHandler& operator=(const LearningRateTextBoxHandler&) = delete;
-
-		public:
-			virtual void OnKeyUp(Control&, Key key) override {
-				if (key == Key::Enter) {
-					dynamic_cast<LearningRateInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-				}
-			}
-		};
-
-		m_LearningRateTextBox = &dynamic_cast<TextBox&>(dialog.AddChild(
-			TextBoxRef(std::make_unique<LearningRateTextBoxHandler>(*m_WindowDialog))));
-
-		m_LearningRateTextBox->SetLocation(10, 10);
-		m_LearningRateTextBox->Show();
-
-		class OkButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			OkButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			OkButtonHandler(const OkButtonHandler&) = delete;
-			virtual ~OkButtonHandler() override = default;
-
-		public:
-			OkButtonHandler& operator=(const OkButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<LearningRateInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-			}
-		};
-
-		m_OkButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<OkButtonHandler>(*m_WindowDialog))));
-
-		m_OkButton->SetText("확인");
-		m_OkButton->Show();
-
-		class CancelButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			CancelButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			CancelButtonHandler(const CancelButtonHandler&) = delete;
-			virtual ~CancelButtonHandler() override = default;
-
-		public:
-			CancelButtonHandler& operator=(const CancelButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<LearningRateInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnCancelButtonClick();
-			}
-		};
-
-		m_CancelButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<CancelButtonHandler>(*m_WindowDialog))));
-
-		m_CancelButton->SetText("취소");
-		m_CancelButton->Show();
-
-		m_WindowDialog->SetMinimumSize(400, 130);
-	}
-
-	virtual void OnResize(WindowDialog&) override {
-		const auto& [clientWidth, clientHeight] = m_WindowDialog->GetClientSize();
-
-		if (m_LearningRateTextBox) {
-			m_LearningRateTextBox->SetSize(clientWidth - 20, 24);
-
-			m_OkButton->SetLocation(clientWidth - (20 + 82 * 2), clientHeight - (10 + 24));
-			m_OkButton->SetSize(82, 24);
-
-			m_CancelButton->SetLocation(clientWidth - (10 + 82), clientHeight - (10 + 24));
-			m_CancelButton->SetSize(82, 24);
-		}
-	}
-
-public:
-	void OnOkButtonClick() {
-		std::istringstream iss(m_LearningRateTextBox->GetText() + ' ');
-
-		float learningRate;
-		iss >> learningRate;
-
-		if (iss.eof()) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"학습률을 입력했는지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else if (iss.fail() || iss.bad() || learningRate <= 0 || learningRate > 1) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"학습률이 0 초과 1 미만의 실수인지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else {
-			m_LearningRate.emplace(learningRate);
-
-			m_WindowDialog->Close(DialogResult::Ok);
-		}
-	}
-	void OnCancelButtonClick() {
-		m_WindowDialog->Close(DialogResult::Cancel);
-	}
-};
-
-class EpochInputDialogHandler final : public WindowDialogEventHandler {
-private:
-	WindowDialog* m_WindowDialog = nullptr;
-
-	TextBox* m_EpochTextBox = nullptr;
-	Button* m_OkButton = nullptr;
-	Button* m_CancelButton = nullptr;
-
-	std::optional<std::size_t> m_Epoch;
-
-public:
-	EpochInputDialogHandler() noexcept = default;
-	EpochInputDialogHandler(const EpochInputDialogHandler&) = delete;
-	virtual ~EpochInputDialogHandler() override = default;
-
-public:
-	EpochInputDialogHandler& operator=(const EpochInputDialogHandler&) = delete;
-
-public:
-	bool HasEpoch() const noexcept {
-		return m_Epoch.has_value();
-	}
-	std::size_t GetEpoch() const noexcept {
-		return *m_Epoch;
-	}
-
-public:
-	virtual void OnCreate(WindowDialog& dialog) override {
-		m_WindowDialog = &dialog;
-
-		class EpochTextBoxHandler final : public TextBoxEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			EpochTextBoxHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			EpochTextBoxHandler(const EpochTextBoxHandler&) = delete;
-			virtual ~EpochTextBoxHandler() override = default;
-
-		public:
-			EpochTextBoxHandler& operator=(const EpochTextBoxHandler&) = delete;
-
-		public:
-			virtual void OnKeyUp(Control&, Key key) override {
-				if (key == Key::Enter) {
-					dynamic_cast<EpochInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-				}
-			}
-		};
-
-		m_EpochTextBox = &dynamic_cast<TextBox&>(dialog.AddChild(
-			TextBoxRef(std::make_unique<EpochTextBoxHandler>(*m_WindowDialog))));
-
-		m_EpochTextBox->SetLocation(10, 10);
-		m_EpochTextBox->Show();
-
-		class OkButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			OkButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			OkButtonHandler(const OkButtonHandler&) = delete;
-			virtual ~OkButtonHandler() override = default;
-
-		public:
-			OkButtonHandler& operator=(const OkButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<EpochInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-			}
-		};
-
-		m_OkButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<OkButtonHandler>(*m_WindowDialog))));
-
-		m_OkButton->SetText("확인");
-		m_OkButton->Show();
-
-		class CancelButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			CancelButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			CancelButtonHandler(const CancelButtonHandler&) = delete;
-			virtual ~CancelButtonHandler() override = default;
-
-		public:
-			CancelButtonHandler& operator=(const CancelButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<EpochInputDialogHandler&>(m_WindowDialog.GetEventHandler()).OnCancelButtonClick();
-			}
-		};
-
-		m_CancelButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<CancelButtonHandler>(*m_WindowDialog))));
-
-		m_CancelButton->SetText("취소");
-		m_CancelButton->Show();
-
-		m_WindowDialog->SetMinimumSize(400, 130);
-	}
-
-	virtual void OnResize(WindowDialog&) override {
-		const auto& [clientWidth, clientHeight] = m_WindowDialog->GetClientSize();
-
-		if (m_EpochTextBox) {
-			m_EpochTextBox->SetSize(clientWidth - 20, 24);
-
-			m_OkButton->SetLocation(clientWidth - (20 + 82 * 2), clientHeight - (10 + 24));
-			m_OkButton->SetSize(82, 24);
-
-			m_CancelButton->SetLocation(clientWidth - (10 + 82), clientHeight - (10 + 24));
-			m_CancelButton->SetSize(82, 24);
-		}
-	}
-
-public:
-	void OnOkButtonClick() {
-		std::istringstream iss(m_EpochTextBox->GetText() + ' ');
-
-		std::size_t epoch;
-		iss >> epoch;
-
-		if (iss.eof()) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"에포크를 입력했는지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else if (iss.fail() || iss.bad() || epoch == 0) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"에포크가 자연수인지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else {
-			m_Epoch.emplace(epoch);
-
-			m_WindowDialog->Close(DialogResult::Ok);
-		}
-	}
-	void OnCancelButtonClick() {
-		m_WindowDialog->Close(DialogResult::Cancel);
 	}
 };
 
@@ -849,27 +416,25 @@ public:
 	}
 
 	void OnOkButtonClick() {
-		if (m_ApplyButton->GetEnabled()) {
-			OnApplyButtonClick();
+		if (!m_ApplyButton->GetEnabled() || OnApplyButtonClick()) {
+			OnCancelButtonClick();
 		}
-
-		OnCancelButtonClick();
 	}
-	void OnApplyButtonClick() {
+	bool OnApplyButtonClick() {
 		if (m_LossFunctionNameComboBox->GetSelectedItemIndex() == ComboBox::NoSelected) {
 			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "손실 함수가 선택되지 않았습니다", {},
 				MessageDialog::Error, MessageDialog::Ok);
 
 			messageDialog->Show();
 
-			return;
+			return false;
 		}
 
 		switch (m_OptimizerNameComboBox->GetSelectedItemIndex()) {
 		case 0: {
 			const auto learningRate = GetLearningRate();
 
-			if (!learningRate) return;
+			if (!learningRate) return false;
 
 			m_SGDOptimizer->SetLearningRate(*learningRate);
 			m_Network.SetOptimizer(m_SGDOptimizer->Copy());
@@ -881,6 +446,8 @@ public:
 		m_ApplyButton->SetEnabled(false);
 
 		m_IsOptimzierEdited = true;
+
+		return true;
 	}
 	void OnCancelButtonClick() {
 		m_WindowDialog->Close(m_IsOptimzierEdited ? DialogResult::Ok : DialogResult::Cancel);
@@ -910,163 +477,6 @@ private:
 
 			return std::nullopt;
 		} else return learningRate;
-	}
-};
-
-class InputOrOutputSizeInputDialogHandler final : public WindowDialogEventHandler {
-private:
-	WindowDialog* m_WindowDialog = nullptr;
-
-	TextBox* m_InputOrOutputSizeTextBox = nullptr;
-	Button* m_OkButton = nullptr;
-	Button* m_CancelButton = nullptr;
-
-	std::optional<std::size_t> m_InputOrOutputSize;
-
-public:
-	InputOrOutputSizeInputDialogHandler() noexcept = default;
-	InputOrOutputSizeInputDialogHandler(const InputOrOutputSizeInputDialogHandler&) = delete;
-	virtual ~InputOrOutputSizeInputDialogHandler() override = default;
-
-public:
-	InputOrOutputSizeInputDialogHandler& operator=(const InputOrOutputSizeInputDialogHandler&) = delete;
-
-public:
-	bool HasInputOrOutputSize() const noexcept {
-		return m_InputOrOutputSize.has_value();
-	}
-	std::size_t GetInputOrOutputSize() const noexcept {
-		return *m_InputOrOutputSize;
-	}
-
-public:
-	virtual void OnCreate(WindowDialog& dialog) override {
-		m_WindowDialog = &dialog;
-
-		class InputOrOutputSizeTextBoxHandler final : public TextBoxEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			InputOrOutputSizeTextBoxHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			InputOrOutputSizeTextBoxHandler(const InputOrOutputSizeTextBoxHandler&) = delete;
-			virtual ~InputOrOutputSizeTextBoxHandler() override = default;
-
-		public:
-			InputOrOutputSizeTextBoxHandler& operator=(const InputOrOutputSizeTextBoxHandler&) = delete;
-
-		public:
-			virtual void OnKeyUp(Control&, Key key) override {
-				if (key == Key::Enter) {
-					dynamic_cast<InputOrOutputSizeInputDialogHandler&>(
-						m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-				}
-			}
-		};
-
-		m_InputOrOutputSizeTextBox = &dynamic_cast<TextBox&>(dialog.AddChild(
-			TextBoxRef(std::make_unique<InputOrOutputSizeTextBoxHandler>(*m_WindowDialog))));
-
-		m_InputOrOutputSizeTextBox->SetLocation(10, 10);
-		m_InputOrOutputSizeTextBox->Show();
-
-		class OkButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			OkButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			OkButtonHandler(const OkButtonHandler&) = delete;
-			virtual ~OkButtonHandler() override = default;
-
-		public:
-			OkButtonHandler& operator=(const OkButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<InputOrOutputSizeInputDialogHandler&>(
-					m_WindowDialog.GetEventHandler()).OnOkButtonClick();
-			}
-		};
-
-		m_OkButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<OkButtonHandler>(*m_WindowDialog))));
-
-		m_OkButton->SetText("확인");
-		m_OkButton->Show();
-
-		class CancelButtonHandler final : public ButtonEventHandler {
-		private:
-			WindowDialog& m_WindowDialog;
-
-		public:
-			CancelButtonHandler(WindowDialog& windowDialog) noexcept
-				: m_WindowDialog(windowDialog) {}
-			CancelButtonHandler(const CancelButtonHandler&) = delete;
-			virtual ~CancelButtonHandler() override = default;
-
-		public:
-			CancelButtonHandler& operator=(const CancelButtonHandler&) = delete;
-
-		public:
-			virtual void OnClick(Control&) override {
-				dynamic_cast<InputOrOutputSizeInputDialogHandler&>(
-					m_WindowDialog.GetEventHandler()).OnCancelButtonClick();
-			}
-		};
-
-		m_CancelButton = &dynamic_cast<Button&>(dialog.AddChild(
-			ButtonRef(std::make_unique<CancelButtonHandler>(*m_WindowDialog))));
-
-		m_CancelButton->SetText("취소");
-		m_CancelButton->Show();
-
-		m_WindowDialog->SetMinimumSize(400, 130);
-	}
-
-	virtual void OnResize(WindowDialog&) override {
-		const auto& [clientWidth, clientHeight] = m_WindowDialog->GetClientSize();
-
-		if (m_InputOrOutputSizeTextBox) {
-			m_InputOrOutputSizeTextBox->SetSize(clientWidth - 20, 24);
-
-			m_OkButton->SetLocation(clientWidth - (20 + 82 * 2), clientHeight - (10 + 24));
-			m_OkButton->SetSize(82, 24);
-
-			m_CancelButton->SetLocation(clientWidth - (10 + 82), clientHeight - (10 + 24));
-			m_CancelButton->SetSize(82, 24);
-		}
-	}
-
-public:
-	void OnOkButtonClick() {
-		std::istringstream iss(m_InputOrOutputSizeTextBox->GetText() + ' ');
-
-		std::size_t inputOrOutputSize;
-		iss >> inputOrOutputSize;
-
-		if (iss.eof()) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"크기를 입력했는지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else if (iss.fail() || iss.bad() || inputOrOutputSize == 0) {
-			MessageDialogRef messageDialog(m_WindowDialog->GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
-				"크기가 자연수인지 확인해 보세요.",
-				MessageDialog::Error, MessageDialog::Ok);
-
-			messageDialog->Show();
-		} else {
-			m_InputOrOutputSize.emplace(inputOrOutputSize);
-
-			m_WindowDialog->Close(DialogResult::Ok);
-		}
-	}
-	void OnCancelButtonClick() {
-		m_WindowDialog->Close(DialogResult::Cancel);
 	}
 };
 
@@ -1713,45 +1123,119 @@ std::optional<TrainData> MainWindowHandler::AskTrainData(std::string dialogTitle
 
 	m_IsFileMode = false;
 
-	WindowDialogRef trainDataInputDialog(*m_Window, std::move(dialogTitle),
-		std::make_unique<TrainDataInputDialogHandler>(inputSize, outputSize));
+	std::optional<TrainData> result;
+	WindowDialogRef inputDialog(*m_Window, std::move(dialogTitle), std::make_unique<InputDialogHandler>(
+		[&](WindowDialog& dialog, const std::string& input) {
+			std::istringstream iss(input + ' ');
 
-	trainDataInputDialog->SetFont(m_Font);
+			result = ReadTrainDataFromStream(dialog.GetWindow(), iss, inputSize, outputSize);
 
-	if (trainDataInputDialog->Show() == DialogResult::Ok)
-		return dynamic_cast<TrainDataInputDialogHandler&>(trainDataInputDialog->GetEventHandler()).GetTrainData();
-	else return std::nullopt;
+			return result.has_value();
+		}, true));
+
+	inputDialog->SetFont(m_Font);
+	inputDialog->Show();
+
+	return result;
 }
 std::optional<float> MainWindowHandler::AskLearningRate(std::string dialogTitle) {
-	WindowDialogRef learningRateInputDialog(*m_Window, std::move(dialogTitle),
-		std::make_unique<LearningRateInputDialogHandler>());
+	std::optional<float> result;
+	WindowDialogRef inputDialog(*m_Window, std::move(dialogTitle), std::make_unique<InputDialogHandler>(
+		[&](WindowDialog& dialog, const std::string& input) {
+			std::istringstream iss(input + ' ');
 
-	learningRateInputDialog->SetFont(m_Font);
+			float learningRate;
+			iss >> learningRate;
 
-	if (learningRateInputDialog->Show() == DialogResult::Ok)
-		return dynamic_cast<LearningRateInputDialogHandler&>(
-			learningRateInputDialog->GetEventHandler()).GetLearningRate();
-	else return std::nullopt;
+			if (iss.eof()) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"학습률을 입력했는지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else if (iss.fail() || iss.bad() || learningRate <= 0 || learningRate > 1) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"학습률이 0 초과 1 미만의 실수인지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else {
+				result = learningRate;
+			}
+
+			return result.has_value();
+		}));
+
+	inputDialog->SetFont(m_Font);
+	inputDialog->Show();
+
+	return result;
 }
 std::optional<std::size_t> MainWindowHandler::AskEpoch(std::string dialogTitle) {
-	WindowDialogRef epochInputDialog(*m_Window, std::move(dialogTitle), std::make_unique<EpochInputDialogHandler>());
+	std::optional<std::size_t> result;
+	WindowDialogRef inputDialog(*m_Window, std::move(dialogTitle), std::make_unique<InputDialogHandler>(
+		[&](WindowDialog& dialog, const std::string& input) {
+			std::istringstream iss(input + ' ');
 
-	epochInputDialog->SetFont(m_Font);
+			std::size_t epoch;
+			iss >> epoch;
 
-	if (epochInputDialog->Show() == DialogResult::Ok)
-		return dynamic_cast<EpochInputDialogHandler&>(epochInputDialog->GetEventHandler()).GetEpoch();
-	else return std::nullopt;
+			if (iss.eof()) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"에포크를 입력했는지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else if (iss.fail() || iss.bad() || epoch == 0) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"에포크가 자연수인지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else {
+				result = epoch;
+			}
+
+			return result.has_value();
+		}));
+
+	inputDialog->SetFont(m_Font);
+	inputDialog->Show();
+
+	return result;
 }
 std::optional<std::size_t> MainWindowHandler::AskInputOrOutputSize(std::string dialogTitle) {
-	WindowDialogRef inputOrOutputSizeInputDialog(*m_Window, std::move(dialogTitle),
-		std::make_unique<InputOrOutputSizeInputDialogHandler>());
+	std::optional<std::size_t> result;
+	WindowDialogRef inputDialog(*m_Window, std::move(dialogTitle), std::make_unique<InputDialogHandler>(
+		[&](WindowDialog& dialog, const std::string& input) {
+			std::istringstream iss(input + ' ');
 
-	inputOrOutputSizeInputDialog->SetFont(m_Font);
+			std::size_t inputOrOutputSize;
+			iss >> inputOrOutputSize;
 
-	if (inputOrOutputSizeInputDialog->Show() == DialogResult::Ok)
-		return dynamic_cast<InputOrOutputSizeInputDialogHandler&>(
-			inputOrOutputSizeInputDialog->GetEventHandler()).GetInputOrOutputSize();
-	else return std::nullopt;
+			if (iss.eof()) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"크기를 입력했는지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else if (iss.fail() || iss.bad() || inputOrOutputSize == 0) {
+				MessageDialogRef messageDialog(dialog.GetWindow(), SAM_APPNAME, "올바르지 않은 형식입니다",
+					"크기가 자연수인지 확인해 보세요.",
+					MessageDialog::Error, MessageDialog::Ok);
+
+				messageDialog->Show();
+			} else {
+				result = inputOrOutputSize;
+			}
+
+			return result.has_value();
+		}));
+
+	inputDialog->SetFont(m_Font);
+	inputDialog->Show();
+
+	return result;
 }
 
 void MainWindowHandler::StartOperation() {
