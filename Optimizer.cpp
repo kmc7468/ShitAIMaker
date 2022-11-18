@@ -2,9 +2,13 @@
 
 #include "Layer.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <random>
+#include <numeric>
 #include <utility>
+#include <vector>
 
 LossFunction::LossFunction(std::string name) noexcept
 	: m_Name(std::move(name)) {}
@@ -138,8 +142,16 @@ void SGDOptimizer::Optimize(const TrainData& trainData, std::size_t epoch) {
 	const auto lossFunction = GetLossFunction();
 	const std::size_t sampleCount = trainData.size();
 
+	std::vector<std::size_t> samples(sampleCount);
+	std::iota(samples.begin(), samples.end(), 0);
+
+	std::mt19937 mt(std::random_device{}());
+
 	for (std::size_t i = 0; i < epoch; ++i) {
-		for (const auto& sample : trainData) {
+		std::ranges::shuffle(samples, mt);
+
+		for (const auto sampleIndex : samples) {
+			const TrainSample& sample = trainData[sampleIndex];
 			const Matrix output = network.Forward(sample.first);
 			const Matrix gradient = lossFunction->Backward(output, sample.second);
 			network.Backward(gradient);
