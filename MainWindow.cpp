@@ -6,6 +6,7 @@
 #include "Matrix.hpp"
 #include "NetworkViewer.hpp"
 #include "Optimizer.hpp"
+#include "PALNetwork.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -1017,21 +1018,24 @@ MenuRef MainWindowHandler::CreateMenu() {
 
 	help->AddSubItem(MenuItemRef("도움말 보기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			OpenURL("https://github.com/kmc7468/ShitAIMaker/wiki");
 		})));
 	help->AddSubItem(MenuItemRef("피드백 보내기", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			OpenURL("https://github.com/kmc7468/ShitAIMaker/issues");
 		})));
 
 	help->AddSubItem(MenuItemSeparatorRef());
 	help->AddSubItem(MenuItemRef("업데이트 확인", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			OpenURL("https://github.com/kmc7468/ShitAIMaker/releases");
 		})));
 	help->AddSubItem(MenuItemRef("ShitAIMaker 정보", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
-			// TODO
+			MessageDialog::Show(*m_Window, SAM_APPNAME, SAM_APPTITLE,
+				"인공신경망 시각화 프로그램\n\n"
+				"개발자 이메일: kmc7468@naver.com\n\n"
+				"(C) 2021-2022. kmc7468 All rights reserved.", MessageDialog::Information, MessageDialog::Ok);
 		})));
 
 	menu->AddItem(std::move(help));
