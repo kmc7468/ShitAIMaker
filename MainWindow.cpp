@@ -902,6 +902,13 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("Sigmoid 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
+			if (m_Project->GetNetwork().GetLayerCount() == 0 || m_Project->GetNetwork().GetInputSize() == 0) {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "전결합층이 없습니다",
+					"최소 1개 이상의 전결합층을 먼저 추가해 주세요.", MessageDialog::Error, MessageDialog::Ok);
+
+				return;
+			}
+
 			m_Project->GetNetwork().AddLayer(std::make_unique<ALayer>(AFunction::Sigmoid));
 
 			m_IsSaved = false;
@@ -912,6 +919,13 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("Tanh 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
+			if (m_Project->GetNetwork().GetLayerCount() == 0 || m_Project->GetNetwork().GetInputSize() == 0) {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "전결합층이 없습니다",
+					"최소 1개 이상의 전결합층을 먼저 추가해 주세요.", MessageDialog::Error, MessageDialog::Ok);
+
+				return;
+			}
+
 			m_Project->GetNetwork().AddLayer(std::make_unique<ALayer>(AFunction::Tanh));
 
 			m_IsSaved = false;
@@ -922,6 +936,13 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("ReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
+			if (m_Project->GetNetwork().GetLayerCount() == 0 || m_Project->GetNetwork().GetInputSize() == 0) {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "전결합층이 없습니다",
+					"최소 1개 이상의 전결합층을 먼저 추가해 주세요.", MessageDialog::Error, MessageDialog::Ok);
+
+				return;
+			}
+
 			m_Project->GetNetwork().AddLayer(std::make_unique<ALayer>(AFunction::ReLU));
 
 			m_IsSaved = false;
@@ -932,6 +953,13 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("LeakyReLU 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
+			if (m_Project->GetNetwork().GetLayerCount() == 0 || m_Project->GetNetwork().GetInputSize() == 0) {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "전결합층이 없습니다",
+					"최소 1개 이상의 전결합층을 먼저 추가해 주세요.", MessageDialog::Error, MessageDialog::Ok);
+
+				return;
+			}
+
 			m_Project->GetNetwork().AddLayer(std::make_unique<ALayer>(AFunction::LeakyReLU));
 
 			m_IsSaved = false;
@@ -942,6 +970,13 @@ MenuRef MainWindowHandler::CreateMenu() {
 		})));
 	network->AddSubItem(MenuItemRef("Softmax 활성화층 추가", std::make_unique<FunctionalMenuItemEventHandler>(
 		[&](MenuItem&) {
+			if (m_Project->GetNetwork().GetLayerCount() == 0 || m_Project->GetNetwork().GetInputSize() == 0) {
+				MessageDialog::Show(*m_Window, SAM_APPNAME, "전결합층이 없습니다",
+					"최소 1개 이상의 전결합층을 먼저 추가해 주세요.", MessageDialog::Error, MessageDialog::Ok);
+
+				return;
+			}
+
 			m_Project->GetNetwork().AddLayer(std::make_unique<SMLayer>());
 
 			m_IsSaved = false;
