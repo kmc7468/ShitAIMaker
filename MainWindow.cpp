@@ -951,6 +951,22 @@ MenuRef MainWindowHandler::CreateMenu() {
 			UpdateNetworkViewer();
 		})));
 
+	network->AddSubItem(MenuItemSeparatorRef());
+	network->AddSubItem(MenuItemRef("가장 마지막 층 삭제", std::make_unique<FunctionalMenuItemEventHandler>(
+		[&](MenuItem&) {
+			const std::size_t layerCount = m_Project->GetNetwork().GetLayerCount();
+
+			if (layerCount == 0) return;
+
+			m_Project->GetNetwork().RemoveLayer(layerCount - 1);
+
+			m_IsSaved = false;
+
+			UpdateText();
+
+			UpdateNetworkViewer();
+		})));
+
 	m_NetworkMenu = &network.Get();
 
 	menu->AddItem(std::move(network));

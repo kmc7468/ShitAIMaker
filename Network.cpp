@@ -19,6 +19,11 @@ void Network::AddLayer(std::unique_ptr<Layer>&& newLayer) {
 
 	m_Layers.push_back(std::move(newLayer));
 }
+void Network::RemoveLayer(std::size_t index) noexcept {
+	assert(index < m_Layers.size());
+
+	m_Layers.erase(m_Layers.begin() + index);
+}
 
 Matrix Network::Forward(const Matrix& input) {
 	assert(!m_Layers.empty());
