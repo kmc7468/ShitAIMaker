@@ -20,6 +20,9 @@ private:
 	std::unique_ptr<Project> m_Project;
 	bool m_IsSaved = true;
 
+	MenuItem* m_ProjectMenu = nullptr;
+	MenuItem* m_NetworkMenu = nullptr;
+
 	Panel* m_NetworkViewer = nullptr;
 
 	std::optional<std::jthread> m_Thread;

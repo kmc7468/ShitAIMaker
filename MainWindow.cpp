@@ -617,6 +617,8 @@ MenuRef MainWindowHandler::CreateMenu() {
 			m_Window->Close();
 		})));
 
+	m_ProjectMenu = &project.Get();
+
 	menu->AddItem(std::move(project));
 
 	DropDownMenuItemRef network("네트워크");
@@ -949,6 +951,8 @@ MenuRef MainWindowHandler::CreateMenu() {
 			UpdateNetworkViewer();
 		})));
 
+	m_NetworkMenu = &network.Get();
+
 	menu->AddItem(std::move(network));
 
 	DropDownMenuItemRef help("도움말");
@@ -1176,14 +1180,16 @@ std::optional<std::size_t> MainWindowHandler::AskInputOrOutputSize(std::string d
 }
 
 void MainWindowHandler::StartOperation() {
-	// TODO: 메뉴 비활성화
+	m_ProjectMenu->SetEnabled(false);
+	m_NetworkMenu->SetEnabled(false);
 }
 void MainWindowHandler::DoneOperation() {
 	m_IsSaved = false;
 
 	UpdateText();
 
-	// TODO: 메뉴 활성화
+	m_ProjectMenu->SetEnabled(true);
+	m_NetworkMenu->SetEnabled(true);
 }
 void MainWindowHandler::DoneTestOperation(std::string result) {
 	DoneOperation();

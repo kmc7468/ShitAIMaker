@@ -372,6 +372,14 @@ public:
 
 protected:
 	virtual void* PALGetHandle() noexcept = 0;
+
+public:
+	bool GetEnabled() const;
+	void SetEnabled(bool newEnabled);
+
+protected:
+	virtual bool PALGetEnabled() const = 0;
+	virtual void PALSetEnabled(bool newEnabled) = 0;
 };
 
 class MenuItemRef final : public UniqueRef<MenuItem> {

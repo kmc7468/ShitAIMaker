@@ -461,6 +461,7 @@ public:
 
 private:
 	std::size_t m_Index = 0;
+	bool m_IsEnabled = true;
 
 public:
 	Win32MenuItem(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler) noexcept
@@ -491,6 +492,19 @@ protected:
 		}
 
 		dynamic_cast<Win32MenuItem&>(subItem).AddItemToParent(*PopupMenu, GetSubItemCount() - 1);
+	}
+
+protected:
+	virtual bool PALGetEnabled() const override {
+		return m_IsEnabled;
+	}
+	virtual void PALSetEnabled(bool newEnabled) override {
+		m_IsEnabled = newEnabled;
+
+		EnableMenuItem(static_cast<HMENU>(
+			IsRootItem() ? GetParentMenu().GetHandle() : GetParentItem().GetHandle()),
+			static_cast<UINT>(m_Index), MF_BYPOSITION | (newEnabled ? MF_ENABLED : MF_DISABLED));
+		DrawMenuBar(GetParentWindow());
 	}
 
 public:

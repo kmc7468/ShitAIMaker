@@ -255,6 +255,13 @@ MenuItemEventHandler& MenuItem::GetEventHandler() noexcept {
 	return *m_EventHandler.get();
 }
 
+bool MenuItem::GetEnabled() const {
+	return PALGetEnabled();
+}
+void MenuItem::SetEnabled(bool newEnabled) {
+	PALSetEnabled(newEnabled);
+}
+
 MenuItemRef::MenuItemRef(std::string string, std::unique_ptr<MenuItemEventHandler>&& eventHandler)
 	: UniqueRef(CreateMenuItem(std::move(string), std::move(eventHandler))) {}
 
