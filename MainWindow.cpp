@@ -707,7 +707,12 @@ MenuRef MainWindowHandler::CreateMenu() {
 					beforeLossSum += loss;
 				}
 
+				const auto startTime = std::chrono::system_clock::now();
+
 				network.Optimize(*trainData, static_cast<std::size_t>(*epoch));
+
+				const auto endTime = std::chrono::system_clock::now();
+				const std::chrono::duration<double> time = endTime - startTime;
 
 				std::ostringstream resultOss;
 
@@ -747,6 +752,8 @@ MenuRef MainWindowHandler::CreateMenu() {
 						resultOss << " (" << lossFunction->GetName() << ' ' << loss << ')';
 					}
 				}
+
+				resultOss << "\n\n소요 시간: " << time.count() << "초";
 
 				m_Window->SendMessage(SAM_DONEFASTOPTIMIZING, resultOss.str());
 			});
