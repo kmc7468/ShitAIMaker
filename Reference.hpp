@@ -13,6 +13,8 @@ private:
 	std::unique_ptr<T> m_Object;
 
 public:
+	UniqueRef() noexcept = default;
+	UniqueRef(std::nullptr_t) noexcept {}
 	UniqueRef(std::unique_ptr<T>&& object) noexcept
 		: m_Object(std::move(object)) {}
 	template<typename U> requires(std::is_base_of_v<T, U>)
@@ -58,7 +60,12 @@ private:
 	std::shared_ptr<T> m_Object;
 
 public:
+	SharedRef() noexcept = default;
+	SharedRef(std::nullptr_t) noexcept {}
 	SharedRef(std::shared_ptr<T> object) noexcept
+		: m_Object(std::move(object)) {}
+	template<typename U> requires(std::is_base_of_v<T, U>)
+	SharedRef(std::shared_ptr<U> object) noexcept
 		: m_Object(std::move(object)) {}
 	template<typename U> requires(std::is_base_of_v<T, U>)
 	SharedRef(const SharedRef<U>& other) noexcept

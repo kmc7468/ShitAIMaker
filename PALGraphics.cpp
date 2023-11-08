@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cmath>
 #include <stdexcept>
-#include <utility>
 
 void InitializeGraphics() {
 	PALInitializeGraphics();

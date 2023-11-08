@@ -1,0 +1,113 @@
+#pragma once
+
+#include "Reference.hpp"
+
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+bool InitializeComputing();
+void FinalizeComputing();
+
+class BufferRef;
+class DeviceRef;
+
+enum class DeviceType {
+	CPU,
+	GPU,
+	Others,
+};
+
+class Device {
+private:
+	std::string m_Name;
+	DeviceType m_Type;
+
+	std::vector<BufferRef> m_Buffers;
+
+public:
+	Device(const Device&) = delete;
+	virtual ~Device() = default;
+
+protected:
+	Device(std::string name, DeviceType type) noexcept;
+
+public:
+	Device& operator=(const Device&) = delete;
+
+public:
+	std::string_view GetName() const noexcept;
+	DeviceType GetType() const noexcept;
+
+public:
+	template<typename T>
+	BufferRef CreateBuffer(std::size_t elementCount = 1) {
+		assert(elementCount > 0);
+
+		const auto buffer = PALCreateBuffer(sizeof(T), elementCount, alignof(T));
+
+		if (buffer) {
+			m_Buffers.push_back(buffer);
+		}
+
+		return buffer;
+	}
+
+	void Join();
+
+protected:
+	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
+		std::size_t elementCount, std::size_t elementAlignment) = 0;
+
+	virtual void PALJoin() = 0;
+
+public:
+	static std::vector<DeviceRef> GetAllDevices();
+};
+
+class DeviceRef final : public SharedRef<Device> {
+public:
+	using SharedRef::SharedRef;
+};
+
+DeviceRef PALInitializeComputingForCPU();
+void PALFinalizeComputingForCPU(DeviceRef& device);
+
+DeviceRef PALInitializeComputingForNVIDIA();
+void PALFinalizeComputingForNVIDIA(DeviceRef& device);
+
+class Buffer {
+private:
+	Device* m_Device;
+	std::size_t m_Size, m_Alignment;
+
+public:
+	Buffer(const Buffer&) = delete;
+	virtual ~Buffer() = default;
+
+protected:
+	Buffer(Device* device, std::size_t size, std::size_t alignment) noexcept;
+
+public:
+	Buffer& operator=(const Buffer&) = delete;
+
+public:
+	const Device* GetDevice() const noexcept;
+	Device* GetDevice() noexcept;
+	std::size_t GetSize() const noexcept;
+	std::size_t GetAlignment() const noexcept;
+
+public:
+	void* GetHandle() noexcept;
+
+protected:
+	virtual void* PALGetHandle() noexcept = 0;
+};
+
+class BufferRef final : public SharedRef<Buffer> {
+public:
+	using SharedRef::SharedRef;
+};
