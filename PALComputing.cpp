@@ -51,6 +51,29 @@ DeviceType Device::GetType() const noexcept {
 	return m_Type;
 }
 
+void Device::ReadBuffer(void* dest, const BufferRef& src) {
+	assert(dest);
+	assert(src);
+	assert(src->GetDevice() == this);
+
+	PALReadBuffer(dest, src);
+}
+void Device::WriteBuffer(const BufferRef& dest, const void* src) {
+	assert(dest);
+	assert(dest->GetDevice() == this);
+	assert(src);
+
+	PALWriteBuffer(dest, src);
+}
+void Device::CopyBuffer(const BufferRef& dest, const BufferRef& src) {
+	assert(dest);
+	assert(dest->GetDevice() == this);
+	assert(src);
+	assert(src->GetDevice() == this);
+
+	PALCopyBuffer(dest, src);
+}
+
 void Device::Join() {
 	PALJoin();
 }

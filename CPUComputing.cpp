@@ -1,8 +1,11 @@
 #include "PALComputing.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstring>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <queue>
@@ -35,6 +38,16 @@ public:
 public:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) override;
+	virtual void PALReadBuffer(void* dest, const BufferRef& src) override {
+		std::memcpy(dest, src->GetHandle(), src->GetSize());
+	}
+	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) override {
+		std::memcpy(dest->GetHandle(), src, dest->GetSize());
+	}
+	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) override {
+		std::memcpy(dest->GetHandle(), src->GetHandle(),
+			std::min(dest->GetSize(), src->GetSize()));
+	}
 
 	virtual void PALJoin() override {
 		assert(m_IsRunning.load(std::memory_order_acquire));

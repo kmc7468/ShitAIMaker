@@ -4,7 +4,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,12 +54,18 @@ public:
 
 		return buffer;
 	}
+	void ReadBuffer(void* dest, const BufferRef& src);
+	void WriteBuffer(const BufferRef& dest, const void* src);
+	void CopyBuffer(const BufferRef& dest, const BufferRef& src);
 
 	void Join();
 
 protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) = 0;
+	virtual void PALReadBuffer(void* dest, const BufferRef& src) = 0;
+	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) = 0;
+	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) = 0;
 
 	virtual void PALJoin() = 0;
 
