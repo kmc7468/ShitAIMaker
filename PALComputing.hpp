@@ -67,16 +67,19 @@ public:
 		return buffer;
 	}
 	void ReadBuffer(void* dest, const BufferRef& src);
+	void ReadBufferAsync(void* dest, const BufferRef& src);
 	void WriteBuffer(const BufferRef& dest, const void* src);
+	void WriteBufferAsync(const BufferRef& dest, const void* src);
 	void CopyBuffer(const BufferRef& dest, const BufferRef& src);
+	void CopyBufferAsync(const BufferRef& dest, const BufferRef& src);
 
-	void MultiplyMatrix(
+	void MultiplyMatrixAsync(
 		std::size_t m, std::size_t n,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
 		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
 	);
-	void MultiplyMatrix(
+	void MultiplyMatrixAsync(
 		std::size_t m, std::size_t n,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -90,16 +93,19 @@ protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) = 0;
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) = 0;
+	virtual void PALReadBufferAsync(void* dest, const BufferRef& src) = 0;
 	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) = 0;
+	virtual void PALWriteBufferAsync(const BufferRef& dest, const void* src) = 0;
 	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) = 0;
+	virtual void PALCopyBufferAsync(const BufferRef& dest, const BufferRef& src) = 0;
 
-	virtual void PALMultiplyMatrix(
+	virtual void PALMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
 		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
 	) = 0;
-	virtual void PALMultiplyMatrix(
+	virtual void PALMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,

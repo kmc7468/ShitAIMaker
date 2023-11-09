@@ -65,12 +65,26 @@ void Device::ReadBuffer(void* dest, const BufferRef& src) {
 
 	PALReadBuffer(dest, src);
 }
+void Device::ReadBufferAsync(void* dest, const BufferRef& src) {
+	assert(dest);
+	assert(src);
+	assert(src->GetDevice() == this);
+
+	PALReadBufferAsync(dest, src);
+}
 void Device::WriteBuffer(const BufferRef& dest, const void* src) {
 	assert(dest);
 	assert(dest->GetDevice() == this);
 	assert(src);
 
 	PALWriteBuffer(dest, src);
+}
+void Device::WriteBufferAsync(const BufferRef& dest, const void* src) {
+	assert(dest);
+	assert(dest->GetDevice() == this);
+	assert(src);
+
+	PALWriteBufferAsync(dest, src);
 }
 void Device::CopyBuffer(const BufferRef& dest, const BufferRef& src) {
 	assert(dest);
@@ -80,8 +94,16 @@ void Device::CopyBuffer(const BufferRef& dest, const BufferRef& src) {
 
 	PALCopyBuffer(dest, src);
 }
+void Device::CopyBufferAsync(const BufferRef& dest, const BufferRef& src) {
+	assert(dest);
+	assert(dest->GetDevice() == this);
+	assert(src);
+	assert(src->GetDevice() == this);
 
-void Device::MultiplyMatrix(
+	PALCopyBufferAsync(dest, src);
+}
+
+void Device::MultiplyMatrixAsync(
 	std::size_t m, std::size_t n,
 	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 	const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -110,14 +132,14 @@ void Device::MultiplyMatrix(
 	assert(b->GetSize() == n * k * bDataSize);
 	assert(c->GetSize() == m * k * cDataSize);
 
-	PALMultiplyMatrix(
+	PALMultiplyMatrixAsync(
 		m, n, k,
 		a, aDataType, aOrderType,
 		b, bDataType, bOrderType,
 		c, cDataType, cOrderType
 	);
 }
-void Device::MultiplyMatrix(
+void Device::MultiplyMatrixAsync(
 	std::size_t m, std::size_t n,
 	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 	const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -151,7 +173,7 @@ void Device::MultiplyMatrix(
 	assert(c->GetSize() == m * k * cDataSize);
 	assert(d->GetSize() == m * k * dDataSize);
 
-	PALMultiplyMatrix(
+	PALMultiplyMatrixAsync(
 		m, n, k,
 		a, aDataType, aOrderType,
 		b, bDataType, bOrderType,

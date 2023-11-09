@@ -90,15 +90,31 @@ protected:
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) override {
 		std::memcpy(dest, src->GetHandle(), src->GetSize());
 	}
+	virtual void PALReadBufferAsync(void* dest, const BufferRef& src) override {
+		AddWork([dest, src]() {
+			std::memcpy(dest, src->GetHandle(), src->GetSize());
+		});
+	}
 	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) override {
 		std::memcpy(dest->GetHandle(), src, dest->GetSize());
+	}
+	virtual void PALWriteBufferAsync(const BufferRef& dest, const void* src) override {
+		AddWork([dest, src]() {
+			std::memcpy(dest->GetHandle(), src, dest->GetSize());
+		});
 	}
 	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) override {
 		std::memcpy(dest->GetHandle(), src->GetHandle(),
 			std::min(dest->GetSize(), src->GetSize()));
 	}
+	virtual void PALCopyBufferAsync(const BufferRef& dest, const BufferRef& src) override {
+		AddWork([dest, src]() {
+			std::memcpy(dest->GetHandle(), src->GetHandle(),
+				std::min(dest->GetSize(), src->GetSize()));
+		});
+	}
 
-	virtual void PALMultiplyMatrix(
+	virtual void PALMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -112,7 +128,7 @@ protected:
 			c, cDataType, cOrderType
 		);
 	}
-	virtual void PALMultiplyMatrix(
+	virtual void PALMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -313,7 +329,7 @@ private:
 	void* m_Buffer;
 
 public:
-	CPUBuffer(Device* device, std::size_t size, std::size_t alignment) noexcept
+	CPUBuffer(Device* device, std::size_t size, std::size_t alignment)
 		: Buffer(device, size, alignment),
 		m_Buffer(::operator new(size, std::align_val_t(alignment))) {}
 	CPUBuffer(const CPUBuffer&) = delete;
