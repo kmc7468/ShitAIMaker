@@ -20,6 +20,18 @@ enum class DeviceType {
 	Others,
 };
 
+enum class DataType {
+	Float32,
+};
+
+std::size_t GetDataTypeSize(DataType type) noexcept;
+
+enum class MatrixOrderType {
+	Default,
+	RowMajor,
+	ColumnMajor,
+};
+
 class Device {
 private:
 	std::string m_Name;
@@ -58,6 +70,20 @@ public:
 	void WriteBuffer(const BufferRef& dest, const void* src);
 	void CopyBuffer(const BufferRef& dest, const BufferRef& src);
 
+	void MultiplyMatrix(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
+	);
+	void MultiplyMatrix(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
+		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+	);
+
 	void Join();
 
 protected:
@@ -66,6 +92,20 @@ protected:
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) = 0;
 	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) = 0;
 	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) = 0;
+
+	virtual void PALMultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
+	) = 0;
+	virtual void PALMultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
+		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+	) = 0;
 
 	virtual void PALJoin() = 0;
 

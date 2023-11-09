@@ -4,6 +4,13 @@
 #include <unordered_map>
 #include <utility>
 
+std::size_t GetDataTypeSize(DataType type) noexcept {
+	switch (type) {
+	case DataType::Float32:
+		return 4;
+	}
+}
+
 namespace {
 	enum class DeviceKey {
 		CPU,
@@ -72,6 +79,85 @@ void Device::CopyBuffer(const BufferRef& dest, const BufferRef& src) {
 	assert(src->GetDevice() == this);
 
 	PALCopyBuffer(dest, src);
+}
+
+void Device::MultiplyMatrix(
+	std::size_t m, std::size_t n,
+	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+	const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+	const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
+) {
+
+	assert(m > 0);
+	assert(n > 0);
+
+	assert(a);
+	assert(a->GetDevice() == this);
+	assert(b);
+	assert(b->GetDevice() == this);
+	assert(c);
+	assert(c->GetDevice() == this);
+
+	const auto aDataSize = GetDataTypeSize(aDataType);
+	const auto bDataSize = GetDataTypeSize(bDataType);
+	const auto cDataSize = GetDataTypeSize(cDataType);
+
+	const auto k = b->GetSize() / bDataSize / n;
+
+	assert(k > 0);
+
+	assert(a->GetSize() == m * n * aDataSize);
+	assert(b->GetSize() == n * k * bDataSize);
+	assert(c->GetSize() == m * k * cDataSize);
+
+	PALMultiplyMatrix(
+		m, n, k,
+		a, aDataType, aOrderType,
+		b, bDataType, bOrderType,
+		c, cDataType, cOrderType
+	);
+}
+void Device::MultiplyMatrix(
+	std::size_t m, std::size_t n,
+	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+	const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+	const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
+	const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+) {
+
+	assert(m > 0);
+	assert(n > 0);
+
+	assert(a);
+	assert(a->GetDevice() == this);
+	assert(b);
+	assert(b->GetDevice() == this);
+	assert(c);
+	assert(c->GetDevice() == this);
+	assert(d);
+	assert(d->GetDevice() == this);
+
+	const auto aDataSize = GetDataTypeSize(aDataType);
+	const auto bDataSize = GetDataTypeSize(bDataType);
+	const auto cDataSize = GetDataTypeSize(cDataType);
+	const auto dDataSize = GetDataTypeSize(dDataType);
+
+	const auto k = b->GetSize() / bDataSize / n;
+
+	assert(k > 0);
+
+	assert(a->GetSize() == m * n * aDataSize);
+	assert(b->GetSize() == n * k * bDataSize);
+	assert(c->GetSize() == m * k * cDataSize);
+	assert(d->GetSize() == m * k * dDataSize);
+
+	PALMultiplyMatrix(
+		m, n, k,
+		a, aDataType, aOrderType,
+		b, bDataType, bOrderType,
+		c, cDataType, cOrderType,
+		d, dDataType, dOrderType
+	);
 }
 
 void Device::Join() {

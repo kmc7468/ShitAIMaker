@@ -14,6 +14,55 @@
 
 class CPUDevice final : public Device {
 private:
+	template<typename T>
+	struct RowMajorMatrixViewer final {
+		using Type = T;
+
+		static T Get(
+			const T* matrix, std::size_t, std::size_t n,
+			std::size_t i, std::size_t j
+		) {
+
+			return matrix[i * n + j];
+		}
+		static void Set(
+			T* matrix, std::size_t, std::size_t n,
+			std::size_t i, std::size_t j, T value
+		) {
+
+			matrix[i * n + j] = value;
+		}
+	};
+	template<typename T>
+	struct ColumnMajorMatrixViewer final {
+		using Type = T;
+
+		static T Get(
+			const T* matrix, std::size_t m, std::size_t,
+			std::size_t i, std::size_t j
+		) {
+
+			return matrix[j * m + i];
+		}
+		static void Set(
+			T* matrix, std::size_t m, std::size_t,
+			std::size_t i, std::size_t j, T value
+		) {
+
+			matrix[j * m + i] = value;
+		}
+	};
+
+	template<std::size_t I, typename T, typename... Ts>
+	struct GetNthType final {
+		using Type = typename GetNthType<I - 1, Ts...>::Type;
+	};
+	template<typename T, typename... Ts>
+	struct GetNthType<0, T, Ts...> final {
+		using Type = T;
+	};
+
+private:
 	std::mutex m_Mutex;
 	std::condition_variable m_Condition;
 
@@ -35,7 +84,7 @@ public:
 public:
 	CPUDevice& operator=(const CPUDevice&) = delete;
 
-public:
+protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) override;
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) override {
@@ -47,6 +96,37 @@ public:
 	virtual void PALCopyBuffer(const BufferRef& dest, const BufferRef& src) override {
 		std::memcpy(dest->GetHandle(), src->GetHandle(),
 			std::min(dest->GetSize(), src->GetSize()));
+	}
+
+	virtual void PALMultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
+	) override {
+
+		MultiplyMatrix<>(
+			m, n, k,
+			a, aDataType, aOrderType,
+			b, bDataType, bOrderType,
+			c, cDataType, cOrderType
+		);
+	}
+	virtual void PALMultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
+		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+	) override {
+
+		MultiplyMatrix<>(
+			m, n, k,
+			a, aDataType, aOrderType,
+			b, bDataType, bOrderType,
+			c, cDataType, cOrderType,
+			d, dDataType, dOrderType
+		);
 	}
 
 	virtual void PALJoin() override {
@@ -86,6 +166,140 @@ private:
 
 		m_Queue.push(std::move(function));
 		m_Condition.notify_one();
+	}
+
+	template<typename... Ts>
+	void MultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
+	) {
+
+		if constexpr (sizeof...(Ts) == 3) {
+			using A = typename GetNthType<0, Ts...>::Type;
+			using B = typename GetNthType<1, Ts...>::Type;
+			using C = typename GetNthType<2, Ts...>::Type;
+
+			const auto aPtr = static_cast<const typename A::Type*>(a->GetHandle());
+			const auto bPtr = static_cast<const typename B::Type*>(b->GetHandle());
+			const auto cPtr = static_cast<typename C::Type*>(c->GetHandle());
+
+			AddWork([m, n, k, aPtr, bPtr, cPtr]() {
+				for (std::size_t row = 0; row < m; ++row) {
+					for (std::size_t column = 0; column < k; ++column) {
+						typename C::Type result = 0;
+
+						for (std::size_t i = 0; i < n; ++i) {
+							result += A::Get(aPtr, m, n, row, i) * B::Get(bPtr, n, k, i, column);
+						}
+
+						C::Set(cPtr, m, k, row, column, result);
+					}
+				}
+			});
+		} else {
+			const DataType dataTypes[] = { aDataType, bDataType, cDataType };
+			const MatrixOrderType orderTypes[] = { aOrderType, bOrderType, cOrderType };
+			constexpr int index = sizeof...(Ts);
+
+			switch (dataTypes[index]) {
+			case DataType::Float32:
+				switch (orderTypes[index]) {
+				case MatrixOrderType::Default:
+				case MatrixOrderType::RowMajor:
+					MultiplyMatrix<Ts..., RowMajorMatrixViewer<float>>(
+						m, n, k,
+						a, aDataType, aOrderType,
+						b, bDataType, bOrderType,
+						c, cDataType, cOrderType
+					);
+
+					break;
+
+				case MatrixOrderType::ColumnMajor:
+					MultiplyMatrix<Ts..., ColumnMajorMatrixViewer<float>>(
+						m, n, k,
+						a, aDataType, aOrderType,
+						b, bDataType, bOrderType,
+						c, cDataType, cOrderType
+					);
+
+					break;
+				}
+
+				break;
+			}
+		}
+	}
+	template<typename... Ts>
+	void MultiplyMatrix(
+		std::size_t m, std::size_t n, std::size_t k,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
+		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
+		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+	) {
+
+		if constexpr (sizeof...(Ts) == 4) {
+			using A = typename GetNthType<0, Ts...>::Type;
+			using B = typename GetNthType<1, Ts...>::Type;
+			using C = typename GetNthType<2, Ts...>::Type;
+			using D = typename GetNthType<3, Ts...>::Type;
+
+			const auto aPtr = static_cast<const typename A::Type*>(a->GetHandle());
+			const auto bPtr = static_cast<const typename B::Type*>(b->GetHandle());
+			const auto cPtr = static_cast<const typename C::Type*>(c->GetHandle());
+			const auto dPtr = static_cast<typename D::Type*>(d->GetHandle());
+
+			AddWork([m, n, k, aPtr, bPtr, cPtr, dPtr]() {
+				for (std::size_t row = 0; row < m; ++row) {
+					for (std::size_t column = 0; column < k; ++column) {
+						typename D::Type result = C::Get(cPtr, m, k, row, column);
+
+						for (std::size_t i = 0; i < n; ++i) {
+							result += A::Get(aPtr, m, n, row, i) * B::Get(bPtr, n, k, i, column);
+						}
+
+						D::Set(dPtr, m, k, row, column, result);
+					}
+				}
+			});
+		} else {
+			const DataType dataTypes[] = { aDataType, bDataType, cDataType, dDataType };
+			const MatrixOrderType orderTypes[] = { aOrderType, bOrderType, cOrderType, dOrderType };
+			constexpr int index = sizeof...(Ts);
+
+			switch (dataTypes[index]) {
+			case DataType::Float32:
+				switch (orderTypes[index]) {
+				case MatrixOrderType::Default:
+				case MatrixOrderType::RowMajor:
+					MultiplyMatrix<Ts..., RowMajorMatrixViewer<float>>(
+						m, n, k,
+						a, aDataType, aOrderType,
+						b, bDataType, bOrderType,
+						c, cDataType, cOrderType,
+						d, dDataType, dOrderType
+					);
+
+					break;
+
+				case MatrixOrderType::ColumnMajor:
+					MultiplyMatrix<Ts..., ColumnMajorMatrixViewer<float>>(
+						m, n, k,
+						a, aDataType, aOrderType,
+						b, bDataType, bOrderType,
+						c, cDataType, cOrderType,
+						d, dDataType, dOrderType
+					);
+
+					break;
+				}
+
+				break;
+			}
+		}
 	}
 };
 
