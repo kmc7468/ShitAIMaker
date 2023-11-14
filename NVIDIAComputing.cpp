@@ -40,6 +40,7 @@ public:
 protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) override;
+	virtual BufferRef PALCreateBuffer(const BufferRef& buffer) override;
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) override {
 		if (cudaMemcpy(dest, src->GetHandle(), src->GetSize(),
 			cudaMemcpyDeviceToHost) != cudaSuccess) {
@@ -158,7 +159,76 @@ protected:
 			throw std::runtime_error("Failed to multiply matrices");
 		}
 	}
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType
+	) {
 
+		const auto temp = CreateBuffer(a);
+
+		TransposeMatrixAsync(
+			m,
+			a, aDataType, aOrderType,
+			temp, aDataType, aOrderType
+		);
+		CopyBufferAsync(a, temp);
+	}
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType
+	) {
+
+		if (aDataType != DataType::Float32 ||
+			bDataType != DataType::Float32) {
+
+			throw std::runtime_error("Unsupported data type");
+		}
+
+		if (aOrderType == MatrixOrderType::RowMajor &&
+			bOrderType == MatrixOrderType::Default ||
+			aOrderType == MatrixOrderType::Default &&
+			bOrderType == MatrixOrderType::RowMajor) {
+
+			CopyBufferAsync(b, a);
+
+			return;
+		}
+
+		const float alpha = 1.0f;
+		const float beta = 0.0f;
+
+		switch (aOrderType) {
+		case MatrixOrderType::RowMajor:
+			cublasSgeam(
+				m_CuBLASHandle,
+				CUBLAS_OP_T, CUBLAS_OP_N,
+				static_cast<int>(n), static_cast<int>(m),
+				&alpha,
+				static_cast<const float*>(a->GetHandle()), static_cast<int>(m),
+				&beta,
+				static_cast<const float*>(b->GetHandle()), static_cast<int>(n),
+				static_cast<float*>(b->GetHandle()), static_cast<int>(n)
+			);
+
+			break;
+
+		case MatrixOrderType::Default:
+		case MatrixOrderType::ColumnMajor:
+			cublasSgeam(
+				m_CuBLASHandle,
+				CUBLAS_OP_T, CUBLAS_OP_N,
+				static_cast<int>(m), static_cast<int>(n),
+				&alpha,
+				static_cast<const float*>(a->GetHandle()), static_cast<int>(n),
+				&beta,
+				static_cast<const float*>(b->GetHandle()), static_cast<int>(m),
+				static_cast<float*>(b->GetHandle()), static_cast<int>(m)
+			);
+
+			break;
+		}
+	}
 	virtual void PALJoin() override {
 		if (cudaStreamSynchronize(m_CudaStream) != cudaSuccess) {
 			throw std::runtime_error("Failed to join a CUDA stream");
@@ -194,7 +264,7 @@ private:
 	void* m_Buffer;
 
 public:
-	NVIDIABuffer(Device* device, std::size_t size, std::size_t)
+	NVIDIABuffer(Device* device, std::size_t size)
 		: Buffer(device, size, 0) {
 
 		if (cudaMalloc(&m_Buffer, size) != cudaSuccess)
@@ -217,8 +287,10 @@ protected:
 BufferRef NVIDIADevice::PALCreateBuffer(std::size_t elementSize,
 	std::size_t elementCount, std::size_t elementAlignment) {
 
-	return std::make_shared<NVIDIABuffer>(this,
-		elementSize * elementCount, elementAlignment);
+	return std::make_shared<NVIDIABuffer>(this, elementSize * elementCount);
+}
+BufferRef NVIDIADevice::PALCreateBuffer(const BufferRef& buffer) {
+	return std::make_shared<NVIDIABuffer>(this, buffer->GetSize());
 }
 #else
 DeviceRef PALInitializeComputingForNVIDIA() {
