@@ -97,8 +97,6 @@ protected:
 			cDataType != DataType::Float32) {
 
 			throw std::runtime_error("Unsupported data type");
-		} else if (cOrderType == MatrixOrderType::RowMajor) {
-			throw std::runtime_error("Unsupported matrix order type");
 		}
 
 		const float alpha = 1.f;
@@ -118,6 +116,10 @@ protected:
 
 			throw std::runtime_error("Failed to multiply matrices");
 		}
+
+		if (cOrderType == MatrixOrderType::RowMajor) {
+			TransposeMatrixAsync(m, c, cDataType, cOrderType);
+		}
 	}
 	virtual void PALMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
@@ -133,13 +135,18 @@ protected:
 			dDataType != DataType::Float32) {
 
 			throw std::runtime_error("Unsupported data type");
-		} else if (cOrderType == MatrixOrderType::RowMajor ||
-			dOrderType == MatrixOrderType::RowMajor) {
-
-			throw std::runtime_error("Unsupported matrix order type");
 		}
 
-		PALCopyBufferAsync(d, c);
+		if (cOrderType == MatrixOrderType::RowMajor) {
+			// Intended! TransposeMatrixAsync(m, c, ..., d, ...) is inappropriate; we need to transform from row-major to column-major order
+			PALTransposeMatrixAsync(
+				m, k,
+				c, cDataType, cOrderType,
+				d, dDataType, cOrderType
+			);
+		} else {
+			CopyBufferAsync(d, c);
+		}
 
 		const float alpha = 1.f;
 		const float beta = 1.f;
@@ -157,6 +164,10 @@ protected:
 		) != CUBLAS_STATUS_SUCCESS) {
 
 			throw std::runtime_error("Failed to multiply matrices");
+		}
+
+		if (dOrderType == MatrixOrderType::RowMajor) {
+			TransposeMatrixAsync(m, d, dDataType, dOrderType);
 		}
 	}
 	virtual void PALTransposeMatrixAsync(
