@@ -58,6 +58,12 @@ DeviceType Device::GetType() const noexcept {
 	return m_Type;
 }
 
+BufferRef Device::CreateBuffer(const BufferRef& buffer) {
+	assert(buffer);
+	assert(buffer->GetDevice() == this);
+
+	return PALCreateBuffer(buffer);
+}
 void Device::ReadBuffer(void* dest, const BufferRef& src) {
 	assert(dest);
 	assert(src);
@@ -180,6 +186,66 @@ void Device::MultiplyMatrixAsync(
 		c, cDataType, cOrderType,
 		d, dDataType, dOrderType
 	);
+}
+void Device::TransposeMatrixAsync(
+	std::size_t m,
+	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType
+) {
+
+	assert(m > 0);
+
+	assert(a);
+	assert(a->GetDevice() == this);
+
+	const auto aDataSize = GetDataTypeSize(aDataType);
+
+	const auto n = a->GetSize() / aDataSize / m;
+
+	assert(n > 0);
+
+	assert(a->GetSize() == m * n * aDataSize);
+
+	PALTransposeMatrixAsync(
+		m, n,
+		a, aDataType, aOrderType
+	);
+}
+void Device::TransposeMatrixAsync(
+	std::size_t m,
+	const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+	const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType
+) {
+
+	assert(m > 0);
+
+	assert(a);
+	assert(a->GetDevice() == this);
+	assert(b);
+	assert(b->GetDevice() == this);
+
+	const auto aDataSize = GetDataTypeSize(aDataType);
+	const auto bDataSize = aDataSize;
+
+	const auto n = a->GetSize() / aDataSize / m;
+
+	assert(n > 0);
+
+	assert(a->GetSize() == m * n * aDataSize);
+	assert(b->GetSize() == n * m * bDataSize);
+
+	if (aOrderType == MatrixOrderType::RowMajor &&
+		bOrderType == MatrixOrderType::ColumnMajor ||
+		aOrderType == MatrixOrderType::ColumnMajor &&
+		bOrderType == MatrixOrderType::RowMajor) {
+
+		CopyBufferAsync(b, a);
+	} else {
+		PALTransposeMatrixAsync(
+			m, n,
+			a, aDataType, aOrderType,
+			b, bDataType, bOrderType
+		);
+	}
 }
 
 void Device::Join() {

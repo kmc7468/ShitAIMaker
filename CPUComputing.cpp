@@ -87,6 +87,7 @@ public:
 protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) override;
+	virtual BufferRef PALCreateBuffer(const BufferRef& buffer) override;
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) override {
 		std::memcpy(dest, src->GetHandle(), src->GetSize());
 	}
@@ -121,7 +122,7 @@ protected:
 		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType
 	) override {
 
-		MultiplyMatrix<>(
+		InternalMultiplyMatrixAsync<>(
 			m, n, k,
 			a, aDataType, aOrderType,
 			b, bDataType, bOrderType,
@@ -136,13 +137,65 @@ protected:
 		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
 	) override {
 
-		MultiplyMatrix<>(
+		InternalMultiplyMatrixAsync<>(
 			m, n, k,
 			a, aDataType, aOrderType,
 			b, bDataType, bOrderType,
 			c, cDataType, cOrderType,
 			d, dDataType, dOrderType
 		);
+	}
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType
+	) {
+
+		const auto temp = CreateBuffer(a);
+
+		TransposeMatrixAsync(
+			m,
+			a, aDataType, aOrderType,
+			temp, aDataType, aOrderType
+		);
+		CopyBufferAsync(a, temp);
+	}
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType, MatrixOrderType bOrderType
+	) {
+
+		if (aOrderType == MatrixOrderType::Default &&
+			bOrderType == MatrixOrderType::ColumnMajor ||
+			aOrderType == MatrixOrderType::ColumnMajor &&
+			bOrderType == MatrixOrderType::Default) {
+
+			CopyBufferAsync(b, a);
+
+			return;
+		}
+
+		switch (aDataType) {
+		case DataType::Float32:
+			switch (aOrderType) {
+			case MatrixOrderType::Default:
+			case MatrixOrderType::RowMajor:
+				InternalCopyMatrixAsync<RowMajorMatrixViewer<float>>(
+					m, n,
+					a, b
+				);
+
+				break;
+
+			case MatrixOrderType::ColumnMajor:
+				InternalCopyMatrixAsync<ColumnMajorMatrixViewer<float>>(
+					m, n,
+					a, b
+				);
+
+				break;
+			}
+		}
 	}
 
 	virtual void PALJoin() override {
@@ -185,7 +238,7 @@ private:
 	}
 
 	template<typename... Ts>
-	void MultiplyMatrix(
+	void InternalMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -201,7 +254,7 @@ private:
 			const auto bPtr = static_cast<const typename B::Type*>(b->GetHandle());
 			const auto cPtr = static_cast<typename C::Type*>(c->GetHandle());
 
-			AddWork([m, n, k, aPtr, bPtr, cPtr]() {
+			AddWork([m, n, k, a, b, c, aPtr, bPtr, cPtr]() {
 				for (std::size_t row = 0; row < m; ++row) {
 					for (std::size_t column = 0; column < k; ++column) {
 						typename C::Type result = 0;
@@ -224,7 +277,7 @@ private:
 				switch (orderTypes[index]) {
 				case MatrixOrderType::Default:
 				case MatrixOrderType::RowMajor:
-					MultiplyMatrix<Ts..., RowMajorMatrixViewer<float>>(
+					InternalMultiplyMatrixAsync<Ts..., RowMajorMatrixViewer<float>>(
 						m, n, k,
 						a, aDataType, aOrderType,
 						b, bDataType, bOrderType,
@@ -234,7 +287,7 @@ private:
 					break;
 
 				case MatrixOrderType::ColumnMajor:
-					MultiplyMatrix<Ts..., ColumnMajorMatrixViewer<float>>(
+					InternalMultiplyMatrixAsync<Ts..., ColumnMajorMatrixViewer<float>>(
 						m, n, k,
 						a, aDataType, aOrderType,
 						b, bDataType, bOrderType,
@@ -249,7 +302,7 @@ private:
 		}
 	}
 	template<typename... Ts>
-	void MultiplyMatrix(
+	void InternalMultiplyMatrixAsync(
 		std::size_t m, std::size_t n, std::size_t k,
 		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
@@ -268,7 +321,7 @@ private:
 			const auto cPtr = static_cast<const typename C::Type*>(c->GetHandle());
 			const auto dPtr = static_cast<typename D::Type*>(d->GetHandle());
 
-			AddWork([m, n, k, aPtr, bPtr, cPtr, dPtr]() {
+			AddWork([m, n, k, a, b, c, d, aPtr, bPtr, cPtr, dPtr]() {
 				for (std::size_t row = 0; row < m; ++row) {
 					for (std::size_t column = 0; column < k; ++column) {
 						typename D::Type result = C::Get(cPtr, m, k, row, column);
@@ -291,7 +344,7 @@ private:
 				switch (orderTypes[index]) {
 				case MatrixOrderType::Default:
 				case MatrixOrderType::RowMajor:
-					MultiplyMatrix<Ts..., RowMajorMatrixViewer<float>>(
+					InternalMultiplyMatrixAsync<Ts..., RowMajorMatrixViewer<float>>(
 						m, n, k,
 						a, aDataType, aOrderType,
 						b, bDataType, bOrderType,
@@ -302,7 +355,7 @@ private:
 					break;
 
 				case MatrixOrderType::ColumnMajor:
-					MultiplyMatrix<Ts..., ColumnMajorMatrixViewer<float>>(
+					InternalMultiplyMatrixAsync<Ts..., ColumnMajorMatrixViewer<float>>(
 						m, n, k,
 						a, aDataType, aOrderType,
 						b, bDataType, bOrderType,
@@ -316,6 +369,26 @@ private:
 				break;
 			}
 		}
+	}
+	template<typename T>
+	void InternalCopyMatrixAsync(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, const BufferRef& b
+	) {
+
+		const auto aPtr = static_cast<const typename T::Type*>(a->GetHandle());
+		const auto bPtr = static_cast<typename T::Type*>(b->GetHandle());
+
+		AddWork([m, n, b, aPtr, bPtr]() {
+			for (std::size_t row = 0; row < m; ++row) {
+				for (std::size_t column = 0; column < n; ++column) {
+					T::Set(
+						bPtr, n, m, column, row,
+						T::Get(aPtr, m, n, row, column)
+					);
+				}
+			}
+		});
 	}
 };
 
@@ -351,4 +424,8 @@ BufferRef CPUDevice::PALCreateBuffer(std::size_t elementSize,
 
 	return std::make_shared<CPUBuffer>(this,
 		elementSize * elementCount, elementAlignment);
+}
+BufferRef CPUDevice::PALCreateBuffer(const BufferRef& buffer) {
+	return std::make_shared<CPUBuffer>(this,
+		buffer->GetSize(), buffer->GetAlignment());
 }

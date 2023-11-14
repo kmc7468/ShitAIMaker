@@ -37,8 +37,6 @@ private:
 	std::string m_Name;
 	DeviceType m_Type;
 
-	std::vector<BufferRef> m_Buffers;
-
 public:
 	Device(const Device&) = delete;
 	virtual ~Device() = default;
@@ -58,14 +56,9 @@ public:
 	BufferRef CreateBuffer(std::size_t elementCount = 1) {
 		assert(elementCount > 0);
 
-		const auto buffer = PALCreateBuffer(sizeof(T), elementCount, alignof(T));
-
-		if (buffer) {
-			m_Buffers.push_back(buffer);
-		}
-
-		return buffer;
+		return PALCreateBuffer(sizeof(T), elementCount, alignof(T));
 	}
+	BufferRef CreateBuffer(const BufferRef& buffer);
 	void ReadBuffer(void* dest, const BufferRef& src);
 	void ReadBufferAsync(void* dest, const BufferRef& src);
 	void WriteBuffer(const BufferRef& dest, const void* src);
@@ -86,12 +79,22 @@ public:
 		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
 		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
 	);
+	void TransposeMatrixAsync(
+		std::size_t m,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType
+	);
+	void TransposeMatrixAsync(
+		std::size_t m,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType
+	);
 
 	void Join();
 
 protected:
 	virtual BufferRef PALCreateBuffer(std::size_t elementSize,
 		std::size_t elementCount, std::size_t elementAlignment) = 0;
+	virtual BufferRef PALCreateBuffer(const BufferRef& buffer) = 0;
 	virtual void PALReadBuffer(void* dest, const BufferRef& src) = 0;
 	virtual void PALReadBufferAsync(void* dest, const BufferRef& src) = 0;
 	virtual void PALWriteBuffer(const BufferRef& dest, const void* src) = 0;
@@ -111,6 +114,15 @@ protected:
 		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType,
 		const BufferRef& c, DataType cDataType, MatrixOrderType cOrderType,
 		const BufferRef& d, DataType dDataType, MatrixOrderType dOrderType
+	) = 0;
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType
+	) = 0;
+	virtual void PALTransposeMatrixAsync(
+		std::size_t m, std::size_t n,
+		const BufferRef& a, DataType aDataType, MatrixOrderType aOrderType,
+		const BufferRef& b, DataType bDataType, MatrixOrderType bOrderType
 	) = 0;
 
 	virtual void PALJoin() = 0;
